@@ -61,6 +61,7 @@
     $('rec-age').textContent = S.age(recDay);
     $('rec-since').textContent = Math.round((recDay - new Date(2020, 4, 19).getTime()) / S.DAY);
     $('rec-next').disabled = recDay >= S.dayStart(Date.now());
+    $('rec-today').classList.toggle('off', recDay === S.dayStart(Date.now()));   // 오늘을 보고 있으면 숨김
 
     // 왼쪽 24시간 띠
     const strip = $('rec-strip');
@@ -105,6 +106,7 @@
     $('sum-range').textContent = `${a.getFullYear()}년 ${a.getMonth() + 1}월 ${a.getDate()}일 ~ ${b.getFullYear() !== a.getFullYear() ? b.getFullYear() + '년 ' : ''}${b.getMonth() + 1}월 ${b.getDate()}일`;
     $('sum-age').textContent = S.age(Math.min(w6, Date.now()));
     $('sum-next').disabled = w0 >= S.weekStart(Date.now());
+    $('sum-today').classList.toggle('off', w0 === S.weekStart(Date.now()));
 
     let y = '';
     for (let i = 0; i <= 8; i++) y += `<span style="top:${i * 12.5}%">${[12, 3, 6, 9][i % 4]}</span>`;
@@ -289,6 +291,9 @@
     $('sum-prev').onclick = () => { sumWeek = S.addDays(sumWeek, -7); renderSummary(); };
     $('sum-next').onclick = () => { sumWeek = S.addDays(sumWeek, 7); renderSummary(); };
     $('sum-range').onclick = openWeekPicker;
+    // 오늘·이번 주로 바로 (2026-09-30)
+    $('rec-today').onclick = () => { recDay = S.dayStart(Date.now()); renderRecord(); };
+    $('sum-today').onclick = () => { sumWeek = S.weekStart(Date.now()); renderSummary(); };
     $('wk-year').onchange = fillWeeks; $('wk-month').onchange = fillWeeks;
     $('wk-list').onclick = e => { const b = e.target.closest('.wk'); if (b && !b.disabled) { sumWeek = +b.dataset.w; closeModals(); renderSummary(); } };
     $('wk-cancel').onclick = closeModals;

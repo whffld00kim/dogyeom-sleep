@@ -197,3 +197,9 @@ textarea { width: 100%; background: #333; color: #fff; border: 1px solid #555; b
 .act .ev-icon { width: 40px; height: 40px; font-size: 21px; }
 .tabbar { height: 56px; }
 .tab { font-size: 12px; }
+
+/* 오늘·이번 주로 바로 가는 버튼 — 피요로그 「업그레이드」 자리 (2026-09-30). 오늘/이번 주를 볼 때는 자리만 두고 숨긴다 */
+.today-btn { display: block; margin: 0 auto 3px; padding: 2px 10px; border: 1px solid #ddd; border-radius: 12px; font-size: 11px; color: #eee; line-height: 1.5; }
+.today-btn:active { background: #333; }
+.today-btn.off { visibility: hidden; }
+.sum-today { position: absolute; right: 10px; top: 8px; margin: 0; }
