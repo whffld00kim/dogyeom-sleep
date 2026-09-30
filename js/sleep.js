@@ -13,7 +13,10 @@
   // 사건 목록 → 잠 목록 [{s, e, sleepId, wakeId, open}]
   //  - 수면 뒤 수면(기상 빠짐): 앞의 것을 버리고 뒤의 것부터 센다 (잘못 누른 경우가 대부분)
   //  - 기상 뒤 기상(수면 빠짐): 앞 수면이 없으니 잠으로 치지 않는다
-  //  - 끝에 남은 수면: 자는 중 (open) — e는 now
+  //  - 끝에 남은 수면: 자는 중 (open) — e는 now.
+  //    단 STALE_H 시간이 넘도록 기상이 없으면 "기상을 안 누른 것"으로 보고 길이 0(stale)으로 둔다 —
+  //    안 그러면 며칠 뒤까지 매일 24시간 잠으로 합산된다 (2026-09-30)
+  const STALE_H = 18;
   function sessions(events, now) {
     const list = Object.entries(events || {})
       .map(([id, v]) => ({ id, type: v.type, t: Number(v.t) }))
@@ -25,7 +28,11 @@
       if (ev.type === 'sleep') open = ev;
       else if (open) { out.push({ s: open.t, e: ev.t, sleepId: open.id, wakeId: ev.id, open: false }); open = null; }
     }
-    if (open) out.push({ s: open.t, e: Math.max(open.t, now || Date.now()), sleepId: open.id, wakeId: null, open: true });
+    if (open) {
+      const e = Math.max(open.t, now || Date.now());
+      const stale = e - open.t > STALE_H * 60 * MIN;
+      out.push({ s: open.t, e: stale ? open.t : e, sleepId: open.id, wakeId: null, open: true, stale });
+    }
     return out;
   }
 
@@ -68,6 +75,6 @@
   function ymd(ms) { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function parseYmd(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d).getTime(); }
 
-  const api = { MIN, DAY, sessions, dayStart, addDays, dayPieces, dayTotal, fmtDur, fmtDur2, age, weekStart, ymd, parseYmd };
+  const api = { MIN, DAY, BIRTH, STALE_H, sessions, dayStart, addDays, dayPieces, dayTotal, fmtDur, fmtDur2, age, weekStart, ymd, parseYmd };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Sleep = api;
 })(typeof window !== 'undefined' ? window : globalThis);

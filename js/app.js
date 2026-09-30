@@ -59,7 +59,7 @@
     const d = new Date(recDay);
     $('rec-date').textContent = `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${WD[d.getDay()]})`;
     $('rec-age').textContent = S.age(recDay);
-    $('rec-since').textContent = Math.round((recDay - new Date(2020, 4, 19).getTime()) / S.DAY);
+    $('rec-since').textContent = Math.round((recDay - S.BIRTH.getTime()) / S.DAY);
     $('rec-next').disabled = recDay >= S.dayStart(Date.now());
     $('rec-today').classList.toggle('off', recDay === S.dayStart(Date.now()));   // 오늘을 보고 있으면 숨김
 
@@ -86,7 +86,11 @@
       const t = hm(v.t);
       let extra = '';
       if (v.type === 'wake' && byWake[v.id]) extra = `<span class="dur">${S.fmtDur((byWake[v.id].e - byWake[v.id].s) / S.MIN)}</span>`;
-      if (v.type === 'sleep' && bySleep[v.id] && bySleep[v.id].open) extra = `<span class="dur live">자는 중 ${S.fmtDur((Date.now() - v.t) / S.MIN)}</span>`;
+      if (v.type === 'sleep' && bySleep[v.id] && bySleep[v.id].open) {
+        extra = bySleep[v.id].stale
+          ? `<span class="dur live">기상을 안 눌렀어요 — ${S.fmtDur((Date.now() - v.t) / S.MIN)}째 (합계에서 뺌)</span>`
+          : `<span class="dur live">자는 중 ${S.fmtDur((Date.now() - v.t) / S.MIN)}</span>`;
+      }
       return `<button class="row ev" data-id="${v.id}">
         <span class="time"><small>${t.ap}</small>${t.text}</span>
         <span class="ev-icon ${v.type}">${v.type === 'sleep' ? '🌙' : '☀️'}</span>
@@ -186,7 +190,9 @@
     const words = q.toLowerCase().split(/\s+/).filter(Boolean);
     const list = q ? all.filter(x => words.every(w => x.text.toLowerCase().includes(w))) : all.filter(x => x.key.startsWith(prefix));
     $('memos-count').textContent = q ? `검색 ${list.length}건 / 전체 ${all.length}건` : `이 달 ${list.length}건 · 전체 ${all.length}건`;
-    const hl = t => { let h = esc(t); for (const w of words) h = h.replace(new RegExp(reEsc(esc(w)), 'gi'), s => `<mark>${s}</mark>`); return h; };
+    // 원문을 낱말로 먼저 자른 뒤 조각마다 escape — escape된 엔티티나 앞서 넣은 <mark> 안에서 다시 매칭되지 않게
+    const hlRe = words.length ? new RegExp('(' + words.map(reEsc).join('|') + ')', 'gi') : null;
+    const hl = t => hlRe ? t.split(hlRe).map((s, i) => i % 2 ? `<mark>${esc(s)}</mark>` : esc(s)).join('') : esc(t);
     $('memos-list').innerHTML = list.length ? list.map(x => {
       const d = new Date(S.parseYmd(x.key));
       return `<button class="mcard" data-key="${x.key}"><div class="md">${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${WD[d.getDay()]})<small>${S.age(d.getTime())}</small></div><div class="mt">${hl(x.text)}</div></button>`;
