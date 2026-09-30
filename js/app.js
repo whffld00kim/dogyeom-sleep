@@ -86,11 +86,8 @@
       let extra = '';
       if (v.type === 'wake' && byWake[v.id]) extra = `<span class="dur">${S.fmtDur((byWake[v.id].e - byWake[v.id].s) / S.MIN)}</span>`;
       if (v.type === 'sleep' && bySleep[v.id] && bySleep[v.id].open) extra = `<span class="dur live">자는 중 ${S.fmtDur((Date.now() - v.t) / S.MIN)}</span>`;
-      // 오늘 기록은 피요로그처럼 시각 아래에 "8시간10분 전"
-      const ago = S.dayStart(Date.now()) === recDay && v.t <= Date.now()
-        ? (() => { const f = S.fmtDur2((Date.now() - v.t) / S.MIN); return `<em class="ago">${f.h ? f.h + '<small>시간</small>' : ''}${f.m}<small>분 전</small></em>`; })() : '';
       return `<button class="row ev" data-id="${v.id}">
-        <span class="time"><small>${t.ap}</small>${t.text}${ago}</span>
+        <span class="time"><small>${t.ap}</small>${t.text}</span>
         <span class="ev-icon ${v.type}">${v.type === 'sleep' ? '🌙' : '☀️'}</span>
         <span class="ev-name">${v.type === 'sleep' ? '수면' : '기상'}</span>${extra}
       </button>`;
