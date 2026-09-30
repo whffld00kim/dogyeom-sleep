@@ -151,3 +151,49 @@ textarea { width: 100%; background: #333; color: #fff; border: 1px solid #555; b
   #page-record { border-right: 1px solid #333; }
   .tabbar { display: none; }
 }
+
+
+/* ===== 기록 화면 — 피요로그와 같은 배치·크기 (2026-09-30 사용자 요청, 나란히 띄운 캡처 비교) =====
+   시간 띠는 머리글 아래부터 탭바 위까지 전부. 목록과 버튼은 띠 오른쪽 칸에만 있다.
+   크기는 폰 CSS 폭 약 400px 기준으로 캡처 비율을 옮긴 것 */
+.rec-top { display: flex; align-items: center; padding: 6px 6px 4px; gap: 2px; }
+.rec-top .rec-head { flex: 1; text-align: center; }
+.rec-top .who { font-size: 14px; }
+.rec-top .title-btn { font-size: 19px; font-weight: 500; padding: 2px 4px; }
+.rec-top .arrow { width: 36px; height: 44px; font-size: 34px; }
+.hidden-arrow { display: none; }
+.since { width: 64px; text-align: center; line-height: 1.15; color: #ddd; }
+.since small { display: block; font-size: 10px; color: #bbb; }
+.since b { font-size: 16px; }
+.rec-body { display: none; }
+.rec-main { flex: 1; min-height: 0; display: flex; }
+.rec-main .strip { width: 42px; }
+.strip .hr span { left: 5px; top: 3px; font-size: 11px; }
+.strip .fill { width: 15px; }
+.rec-right { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rec-right .rec-list { flex: 1; overflow-y: auto; }
+.gap { height: 8px; background: #1a1a1a; }
+.row { gap: 10px; padding: 8px 12px; }
+.total-row { padding: 6px 12px; }
+.total-text { font-size: 11px; line-height: 1.25; color: #ddd; }
+.total-text small { font-size: 10px; }
+.ev-icon { width: 32px; height: 32px; font-size: 17px; }
+.ev-icon.tiny { width: 24px; height: 24px; font-size: 13px; }
+.ev { padding: 12px 12px 10px; }
+.ev .time { width: 58px; text-align: right; font-size: 17px; line-height: 1.1; }
+.ev .time small { position: static; display: block; text-align: left; font-size: 8px; color: var(--dim); margin-left: 4px; }
+.ev .time .ago { display: block; font-style: normal; color: var(--pink); font-size: 11px; margin-top: 2px; white-space: nowrap; }
+.ev .time .ago small { display: inline; font-size: 8px; color: var(--pink); margin: 0; }
+.ev-name { font-size: 16px; white-space: nowrap; }
+.dur { font-size: 16px; white-space: nowrap; }
+.dur.live { font-size: 12px; }
+.memo-row { margin-top: 0; padding: 12px 14px; }
+.memo-title { font-size: 16px; }
+.memo-edit { font-size: 20px; }
+.memo-text { font-size: 14px; padding: 10px 14px; }
+.empty { padding: 18px 12px; font-size: 13px; }
+.rec-right .actions { justify-content: flex-start; gap: 18px; padding: 10px 14px 6px; }
+.act { gap: 4px; font-size: 11px; }
+.act .ev-icon { width: 40px; height: 40px; font-size: 21px; }
+.tabbar { height: 56px; }
+.tab { font-size: 12px; }

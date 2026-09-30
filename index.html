@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="css/style.css?v=20260930d" />
+  <link rel="stylesheet" href="css/style.css?v=20260930e" />
 </head>
 <body>
 
@@ -34,36 +34,40 @@
 
   <!-- ===== 기록 ===== -->
   <section id="page-record" class="page active">
-    <header class="top">
-      <div class="who">도겸 <span class="face">🧒</span> <span id="rec-age"></span></div>
-      <div class="nav">
-        <button class="arrow" id="rec-prev" aria-label="전날">‹</button>
+    <header class="top rec-top">
+      <button class="arrow" id="rec-prev" aria-label="전날">‹</button>
+      <div class="rec-head">
+        <div class="who">도겸 <span class="face">🧒</span> <span id="rec-age"></span></div>
         <button class="title-btn" id="rec-date"></button>
-        <button class="arrow" id="rec-next" aria-label="다음날">›</button>
       </div>
+      <div class="since"><small>태어난 지</small><b id="rec-since"></b><small>일째</small></div>
+      <button class="arrow hidden-arrow" id="rec-next" aria-label="다음날">›</button>
       <input type="date" id="rec-date-input" class="ghost-input" />
     </header>
 
-    <div class="rec-body">
+    <div class="rec-main">
       <div class="strip" id="rec-strip"></div>
-      <div class="rec-list">
-        <div class="row total-row">
-          <span class="ev-icon sleep small">🌙</span>
-          <span class="total-text" id="rec-total"></span>
+      <div class="rec-right">
+        <div class="rec-list">
+          <div class="row total-row">
+            <span class="ev-icon sleep tiny">🌙</span>
+            <span class="total-text" id="rec-total"></span>
+          </div>
+          <div class="gap"></div>
+          <div id="rec-events"></div>
+          <div class="gap"></div>
+          <div class="row memo-row" id="memo-row">
+            <span class="memo-title">📖 성장 메모</span>
+            <button class="memo-edit" id="memo-edit" aria-label="메모 쓰기">✏️</button>
+          </div>
+          <div class="memo-text" id="memo-text"></div>
         </div>
-        <div id="rec-events"></div>
-        <div class="row memo-row" id="memo-row">
-          <span class="memo-title">📖 성장 메모</span>
-          <button class="memo-edit" id="memo-edit" aria-label="메모 쓰기">✏️</button>
+        <div class="actions">
+          <button class="act" data-type="sleep"><span class="ev-icon sleep">🌙</span><span>수면</span></button>
+          <button class="act" data-type="wake"><span class="ev-icon wake">☀️</span><span>기상</span></button>
+          <button class="act" id="open-memos"><span class="ev-icon memo">📖</span><span>메모</span></button>
         </div>
-        <div class="memo-text" id="memo-text"></div>
       </div>
-    </div>
-
-    <div class="actions">
-      <button class="act" data-type="sleep"><span class="ev-icon sleep">🌙</span><span>수면</span></button>
-      <button class="act" data-type="wake"><span class="ev-icon wake">☀️</span><span>기상</span></button>
-      <button class="act" id="open-memos"><span class="ev-icon memo">📖</span><span>메모</span></button>
     </div>
   </section>
 
@@ -164,7 +168,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="js/sleep.js?v=20260930a"></script>
-<script src="js/app.js?v=20260930e"></script>
+<script src="js/app.js?v=20260930f"></script>
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
