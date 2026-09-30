@@ -242,10 +242,11 @@
     const id = editing.id;
     closeModals();
     if (DEMO) { events[id || 'd' + Date.now()] = { ...(events[id] || {}), ...rec }; render(); return; }
+    recDay = S.dayStart(t); renderRecord();   // RTDB 로컬 이벤트가 await보다 먼저 그리므로 날짜를 먼저 옮긴다
     try {
-      if (id) await ref.child('events/' + id).update({ t, by: rec.by, at: rec.at });
+      // 사람이 손댄 피요로그 기록은 수동 기록으로 승격(src 제거) — 다시 가져오기(import-piyolog.js)가 덮거나 이중 등록하지 않게
+      if (id) await ref.child('events/' + id).update({ t, by: rec.by, at: rec.at, src: null });
       else await ref.child('events').push(rec);
-      recDay = S.dayStart(t);
     } catch (e) { toast('저장 실패: ' + (e.code || e.message)); }
   }
   async function deleteEvent() {
@@ -362,7 +363,7 @@
         ref = firebase.database().ref('dogyeom-sleep/' + hid);
         let first = true;
         ref.child('events').on('value', s => { events = s.val() || {}; render(); if (first) { first = false; showApp(); setStatus(''); } },
-          e => { setError('불러오기 실패: ' + (e.code || e.message)); });
+          e => { $('auth-screen').classList.remove('resuming'); setStatus(''); setError('불러오기 실패: ' + (e.code || e.message)); auth.signOut(); });
         ref.child('memos').on('value', s => { memos = s.val() || {}; renderRecord(); renderMemos(); });
         try { localStorage.setItem('dsleep_signed_in', '1'); } catch (e) {}
       } catch (e) {
