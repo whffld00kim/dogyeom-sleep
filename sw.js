@@ -1,12 +1,12 @@
 // 도겸 수면 — 저장된 사본으로 먼저 열고 뒤에서 새 파일로 캐시를 바꿔 둔다 (다른 웹앱과 같은 틀, 2026-09-30)
 // ⚠ index.html이 부르는 파일을 바꾸면 CACHE 버전과 OWN 목록을 같이 고친다.
-const CACHE = 'dsleep-v20260930i';
+const CACHE = 'dsleep-v20260930j';
 const OWN = [
   "./",
   "./index.html",
   "./manifest.json",
   "./icons/icon-192.png",
-  "./css/style.css?v=20260930f",
+  "./css/style.css?v=20260930g",
   "./js/sleep.js?v=20260930a",
   "./js/app.js?v=20260930h"
 ];

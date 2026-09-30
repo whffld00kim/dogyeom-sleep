@@ -203,3 +203,7 @@ textarea { width: 100%; background: #333; color: #fff; border: 1px solid #555; b
 .today-btn:active { background: #333; }
 .today-btn.off { visibility: hidden; }
 .sum-today { position: absolute; right: 10px; top: 8px; margin: 0; }
+
+/* 「2325일」 한 줄 (2026-09-30) */
+.since-n { display: block; white-space: nowrap; font-size: 11px; color: #ddd; }
+.since-n b { font-size: 16px; }
