@@ -73,11 +73,12 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .y-axis { position: relative; width: 36px; flex: none; }
 .y-axis span { position: absolute; right: 8px; transform: translateY(-50%); font-size: 14px; color: #ddd; }
 .chart { position: relative; flex: 1; display: flex; border: 1px solid #555; background: #242424; }
-.gl { position: absolute; left: 0; right: 0; border-top: 1px dashed #3f3f3f; }
-.gl:nth-child(even) { border-top-style: solid; border-color: #474747; }
+.gl { position: absolute; left: 0; right: 0; border-top: 1px dashed #444; z-index: 1; pointer-events: none; }
+.gl.major { border-top: 1px solid #4a4a4a; }
+.gl.mid { border-top-color: #5a5a5a; }
 .col { position: relative; flex: 1; height: 100%; }
 .col.alt { background: rgba(255,255,255,.035); }
-.bar { position: absolute; left: 8%; right: 8%; background: var(--blue); border-radius: 4px; }
+.bar { z-index: 2; position: absolute; left: 8%; right: 8%; background: var(--blue); border-radius: 4px; }
 .bar.open { background: repeating-linear-gradient(0deg, var(--blue) 0 6px, var(--blue2) 6px 12px); }
 .x-labels { display: flex; padding: 6px 12px 10px 48px; }
 .xl { flex: 1; text-align: center; font-size: 13px; line-height: 1.35; }

@@ -125,7 +125,8 @@
         (tot ? `<small>${f.h}시간<br>${f.m}분</small>` : `<small>&nbsp;<br>&nbsp;</small>`) + `</div>`;
     }
     let grid = '';
-    for (let i = 1; i < 8; i++) grid += `<div class="gl${i % 4 === 0 ? ' mid' : ''}" style="top:${i * 12.5}%"></div>`;
+    // 1시간마다 점선, 3시간마다 실선, 정오는 굵게 (피요로그와 같게, 2026-09-30)
+    for (let i = 1; i < 24; i++) grid += `<div class="gl${i % 3 === 0 ? ' major' : ''}${i === 12 ? ' mid' : ''}" style="top:${i / 24 * 100}%"></div>`;
     $('chart').innerHTML = grid + cols;
     $('x-labels').innerHTML = labels;
     $('sum-meta').textContent = days ? `하루 평균 ${S.fmtDur(sum / days)} · 지난 날 ${days}일 기준` : '';
