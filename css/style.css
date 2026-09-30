@@ -84,7 +84,9 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .xl { flex: 1; text-align: center; font-size: 13px; line-height: 1.35; }
 .xl span { display: block; font-size: 14px; }
 .xl .sun { color: var(--sun); } .xl .sat { color: var(--sat); }
-.xl small { color: #ddd; font-size: 13px; }
+.xl small { color: #ddd; font-size: 13px; display: block; margin-top: 2px; }
+.xl small.zero { color: #666; }
+.x-labels { flex: none; }
 .xl i { font-style: normal; white-space: nowrap; }
 .xl .short { display: none; }
 @media (max-width: 520px) { .xl .long { display: none; } .xl .short { display: inline; } }

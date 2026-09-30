@@ -122,7 +122,8 @@
       const f = S.fmtDur2(tot);
       const cls = d.getDay() === 0 ? 'sun' : d.getDay() === 6 ? 'sat' : '';
       labels += `<div class="xl"><span class="${cls}"><i class="long">${d.getMonth() + 1}월 ${d.getDate()}일</i><i class="short">${d.getMonth() + 1}/${d.getDate()}</i></span>` +
-        (tot ? `<small>${f.h}시간<br>${f.m}분</small>` : `<small>&nbsp;<br>&nbsp;</small>`) + `</div>`;
+        // 오늘까지는 기록이 없어도 0시간 0분을 적는다 (2026-09-30 사용자 요청 — 날짜 밑 총 시간이 늘 보이게)
+        (d0 <= today ? `<small class="${tot ? '' : 'zero'}">${f.h}시간<br>${f.m}분</small>` : `<small>&nbsp;<br>&nbsp;</small>`) + `</div>`;
     }
     let grid = '';
     // 1시간마다 점선, 3시간마다 실선, 정오는 굵게 (피요로그와 같게, 2026-09-30)
