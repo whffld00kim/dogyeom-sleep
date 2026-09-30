@@ -279,7 +279,7 @@
     $('mo-cancel').onclick = closeModals;
     $('mm-search').oninput = renderMemos;
     $('memos-list').onclick = e => { const c = e.target.closest('.mcard'); if (c) { recDay = S.parseYmd(c.dataset.key); $('memos-screen').classList.add('hidden'); show('record'); renderRecord(); } };
-    $('rec-events').onclick = e => { const r = e.target.closest('.ev'); if (r) openTime(null, { id: r.dataset.id, ...events[r.dataset.id] }); };
+    $('rec-events').onclick = e => { if (recentlySwiped($('page-record'))) return; const r = e.target.closest('.ev'); if (r) openTime(null, { id: r.dataset.id, ...events[r.dataset.id] }); };
     $('memo-edit').onclick = () => { const m = memos[S.ymd(recDay)]; $('memo-input').value = m ? m.text : ''; $('memo-modal').classList.remove('hidden'); $('memo-input').focus(); };
     $('memo-text').onclick = () => $('memo-edit').onclick();
     $('tm-ok').onclick = saveTime; $('tm-cancel').onclick = closeModals; $('tm-del').onclick = deleteEvent;
@@ -291,13 +291,30 @@
     $('wk-year').onchange = fillWeeks; $('wk-month').onchange = fillWeeks;
     $('wk-list').onclick = e => { const b = e.target.closest('.wk'); if (b && !b.disabled) { sumWeek = +b.dataset.w; closeModals(); renderSummary(); } };
     $('wk-cancel').onclick = closeModals;
-    $('chart').onclick = e => { const c = e.target.closest('.col'); if (c) { recDay = +c.dataset.day; show('record'); renderRecord(); } };
+    $('chart').onclick = e => { if (recentlySwiped($('page-summary'))) return; const c = e.target.closest('.col'); if (c) { recDay = +c.dataset.day; show('record'); renderRecord(); } };
 
     document.querySelectorAll('.tab').forEach(b => b.onclick = () => show(b.dataset.page));
+    swipe($('page-record'), () => $('rec-prev').click(), () => { if (!$('rec-next').disabled) $('rec-next').click(); });
+    swipe($('page-summary'), () => $('sum-prev').click(), () => { if (!$('sum-next').disabled) $('sum-next').click(); });
     document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) closeModals(); }));
     // 자는 중 시간이 흐르도록 1분마다 다시 그림
     setInterval(() => { if (!document.hidden) render(); }, 60 * 1000);
   }
+  // 좌우 스와이프 (2026-09-30) — 기록은 하루, 정리표는 한 주. 왼쪽으로 밀면 다음, 오른쪽으로 밀면 이전.
+  // 세로 스크롤과 헷갈리지 않게 가로 60px 이상 · 가로가 세로의 1.5배 이상일 때만
+  function swipe(el, onPrev, onNext) {
+    let x0 = null, y0 = 0, t0 = 0;
+    el.addEventListener('touchstart', e => { if (e.touches.length !== 1) { x0 = null; return; } x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now(); }, { passive: true });
+    el.addEventListener('touchend', e => {
+      if (x0 === null) return;
+      const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+      if (Date.now() - t0 > 800 || Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      el.dataset.swiped = String(Date.now());          // 스와이프 끝의 탭(막대 누르기 등)을 무시하려고
+      (dx < 0 ? onNext : onPrev)();
+    }, { passive: true });
+  }
+  function recentlySwiped(el) { return Date.now() - Number(el.dataset.swiped || 0) < 400; }
+
   function show(page) {
     document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + page));
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.page === page));
