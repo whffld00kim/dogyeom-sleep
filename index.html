@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1f1f1f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="도겸 수면" />
+  <title>도겸 수면</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/style.css?v=20260930a" />
+</head>
+<body>
+
+<!-- 로그인 -->
+<div id="auth-screen" class="auth">
+  <div class="auth-box">
+    <div class="auth-icon">🌙</div>
+    <h1>도겸 수면</h1>
+    <p class="auth-sub">부부가계부와 같은 구글 계정으로 로그인합니다</p>
+    <button id="btn-google" class="btn-google">구글 계정으로 로그인</button>
+    <div id="auth-status" class="auth-status"></div>
+    <div id="auth-error" class="auth-error"></div>
+  </div>
+</div>
+<script>
+  // 로그인했던 기기면 버튼 대신 "불러오는 중…"을 먼저 보인다 (우리집 가계부와 같은 방식)
+  try { if (localStorage.getItem('dsleep_signed_in') === '1') document.getElementById('auth-screen').classList.add('resuming'); } catch (e) {}
+</script>
+
+<div id="app" class="hidden">
+
+  <!-- ===== 기록 ===== -->
+  <section id="page-record" class="page active">
+    <header class="top">
+      <div class="who">도겸 <span class="face">🧒</span> <span id="rec-age"></span></div>
+      <div class="nav">
+        <button class="arrow" id="rec-prev" aria-label="전날">‹</button>
+        <button class="title-btn" id="rec-date"></button>
+        <button class="arrow" id="rec-next" aria-label="다음날">›</button>
+      </div>
+      <input type="date" id="rec-date-input" class="ghost-input" />
+    </header>
+
+    <div class="rec-body">
+      <div class="strip" id="rec-strip"></div>
+      <div class="rec-list">
+        <div class="row total-row">
+          <span class="ev-icon sleep small">🌙</span>
+          <span class="total-text" id="rec-total"></span>
+        </div>
+        <div id="rec-events"></div>
+        <div class="row memo-row" id="memo-row">
+          <span class="memo-title">📖 성장 메모</span>
+          <button class="memo-edit" id="memo-edit" aria-label="메모 쓰기">✏️</button>
+        </div>
+        <div class="memo-text" id="memo-text"></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="act" data-type="sleep"><span class="ev-icon sleep">🌙</span><span>수면</span></button>
+      <button class="act" data-type="wake"><span class="ev-icon wake">☀️</span><span>기상</span></button>
+    </div>
+  </section>
+
+  <!-- ===== 정리표 ===== -->
+  <section id="page-summary" class="page">
+    <header class="top">
+      <div class="who">도겸 <span class="face">🧒</span> <span id="sum-age"></span></div>
+      <div class="nav">
+        <button class="arrow" id="sum-prev" aria-label="전주">‹</button>
+        <button class="title-btn" id="sum-range"></button>
+        <button class="arrow" id="sum-next" aria-label="다음주">›</button>
+      </div>
+    </header>
+    <div class="sum-meta" id="sum-meta"></div>
+    <div class="chart-wrap">
+      <div class="y-axis" id="y-axis"></div>
+      <div class="chart" id="chart"></div>
+    </div>
+    <div class="x-labels" id="x-labels"></div>
+  </section>
+
+  <nav class="tabbar">
+    <button class="tab active" data-page="record"><span class="tab-ico">✏️</span><span>기록</span></button>
+    <button class="tab" data-page="summary"><span class="tab-ico">📊</span><span>정리표</span></button>
+  </nav>
+</div>
+
+<!-- 시각 입력 -->
+<div class="modal hidden" id="time-modal">
+  <div class="sheet">
+    <div class="sheet-head"><span class="ev-icon" id="tm-icon"></span><span id="tm-title"></span><span class="ev-icon" id="tm-icon2"></span></div>
+    <div class="tm-body">
+      <input type="time" id="tm-time" class="big-time" />
+      <input type="date" id="tm-date" class="tm-date" />
+    </div>
+    <button class="sheet-btn ok" id="tm-ok">OK</button>
+    <button class="sheet-btn danger hidden" id="tm-del">삭제</button>
+    <button class="sheet-btn" id="tm-cancel">취소</button>
+  </div>
+</div>
+
+<!-- 성장 메모 -->
+<div class="modal hidden" id="memo-modal">
+  <div class="sheet">
+    <div class="sheet-head"><span>📖 성장 메모</span></div>
+    <textarea id="memo-input" rows="7" placeholder="오늘 도겸이 이야기"></textarea>
+    <button class="sheet-btn ok" id="memo-ok">저장</button>
+    <button class="sheet-btn" id="memo-cancel">취소</button>
+  </div>
+</div>
+
+<!-- 주 고르기 -->
+<div class="modal hidden" id="week-modal">
+  <div class="sheet">
+    <div class="sheet-head"><span>주 고르기</span></div>
+    <div class="wk-selects">
+      <select id="wk-year"></select>
+      <select id="wk-month"></select>
+    </div>
+    <div class="wk-list" id="wk-list"></div>
+    <button class="sheet-btn" id="wk-cancel">닫기</button>
+  </div>
+</div>
+
+<div class="toast hidden" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="js/sleep.js?v=20260930a"></script>
+<script src="js/app.js?v=20260930a"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloaded) { reloaded = true; location.reload(); } });
+  }
+</script>
+</body>
+</html>
