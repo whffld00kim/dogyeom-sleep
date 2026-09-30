@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="css/style.css?v=20260930g" />
+  <link rel="stylesheet" href="css/style.css?v=20261001a" />
 </head>
 <body>
 
@@ -19,7 +19,13 @@
   <div class="auth-box">
     <div class="auth-icon">🌙</div>
     <h1>도겸 수면</h1>
-    <p class="auth-sub">부부가계부와 같은 구글 계정으로 로그인합니다</p>
+    <p class="auth-sub">부부가계부와 같은 계정으로 로그인합니다</p>
+    <form id="auth-form" class="auth-form" autocomplete="on">
+      <input type="email" id="auth-email" placeholder="이메일" autocomplete="username" required />
+      <input type="password" id="auth-pw" placeholder="비밀번호" autocomplete="current-password" required />
+      <button type="submit" id="btn-email" class="btn-email">로그인</button>
+    </form>
+    <div class="auth-or">또는</div>
     <button id="btn-google" class="btn-google">구글 계정으로 로그인</button>
     <div id="auth-status" class="auth-status"></div>
     <div id="auth-error" class="auth-error"></div>
@@ -169,7 +175,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="js/sleep.js?v=20260930b"></script>
-<script src="js/app.js?v=20260930j"></script>
+<script src="js/app.js?v=20261001a"></script>
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});

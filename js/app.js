@@ -345,6 +345,19 @@
     const setStatus = m => $('auth-status').textContent = m || '';
     const setError = m => $('auth-error').textContent = m || '';
 
+    // 부부가계부처럼 이메일·비밀번호로 (아내 계정은 네이버 메일이라 구글 로그인이 안 된다 — 2026-10-01)
+    $('auth-form').onsubmit = async ev => {
+      ev.preventDefault();
+      setError(''); setStatus('로그인 중…');
+      try { await auth.signInWithEmailAndPassword($('auth-email').value.trim(), $('auth-pw').value); }
+      catch (e) {
+        setStatus('');
+        const m = { 'auth/invalid-credential': '이메일 또는 비밀번호가 맞지 않습니다', 'auth/wrong-password': '비밀번호가 맞지 않습니다',
+          'auth/user-not-found': '등록되지 않은 이메일입니다', 'auth/invalid-email': '이메일 형식이 아닙니다', 'auth/too-many-requests': '시도가 많아 잠시 막혔습니다. 조금 뒤에 다시 해 주세요' };
+        setError('로그인 실패: ' + (m[e.code] || e.code || e.message));
+      }
+    };
+
     $('btn-google').onclick = async () => {
       setError(''); setStatus('구글 로그인 창을 여는 중…');
       try { await auth.signInWithPopup(provider); }
@@ -352,7 +365,7 @@
         if (['auth/popup-blocked', 'auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/operation-not-supported-in-this-environment'].includes(e.code)) {
           try { await auth.signInWithRedirect(provider); return; } catch (e2) { e = e2; }
         }
-        setStatus(''); setError('로그인 실패: ' + (e.code || e.message));
+        setStatus(''); setError(e.code === 'auth/admin-restricted-operation' ? '이 구글 계정은 부부가계부에 없습니다. 위에서 부부가계부 이메일·비밀번호로 로그인해 주세요.' : '로그인 실패: ' + (e.code || e.message));
       }
     };
 

@@ -20,6 +20,7 @@ dogyeom-sleep/{hid}/memos/{YYYY-MM-DD} = { text, by, at }
 - 잠 한 번 = 수면 사건 → 다음 기상 사건 (`js/sleep.js`의 `sessions`). 기상 없이 수면이 두 번이면 앞의 것은 버린다
 - 권한은 부부가계부 가구 멤버십(`households/{hid}/members/{uid}`). 규칙 원본은 `minsung-buboo2/database.rules.json`
 - 가구 id는 코드에 두지 않는다 — 로그인한 계정의 `users/{uid}/householdId`에서 읽는다
+- 로그인은 **이메일·비밀번호가 기본**(부부가계부와 같은 계정), 구글 로그인은 보조. 아내 계정은 네이버 메일 + 비밀번호라 구글 로그인이 안 된다(프로젝트가 새 계정 만들기를 막아 `auth/admin-restricted-operation`) — 2026-10-01
 - 사건 하나씩 쓰므로 두 사람이 동시에 눌러도 서로 덮지 않는다
 - `src: 'piyolog'`은 옛 앱(피요로그) 화면 녹화에서 옮긴 기록 (±5분)
 

@@ -16,10 +16,14 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .auth-icon { font-size: 56px; }
 .auth h1 { margin: 8px 0 4px; }
 .auth-sub { color: var(--dim); font-size: 14px; }
-.btn-google { margin-top: 20px; background: var(--pink); color: #fff; padding: 14px 28px; border-radius: 28px; font-weight: 700; }
+.auth-form { display: flex; flex-direction: column; gap: 10px; margin: 20px auto 0; width: min(300px, 80vw); }
+.auth-form input { background: var(--panel2); color: inherit; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 16px; }
+.btn-email { background: var(--pink); color: #fff; padding: 14px 28px; border-radius: 28px; font-weight: 700; }
+.auth-or { margin: 16px 0 0; color: var(--dim); font-size: 13px; }
+.btn-google { margin-top: 10px; background: transparent; color: var(--dim); border: 1px solid var(--line); padding: 12px 24px; border-radius: 28px; font-weight: 600; }
 .auth-status { margin-top: 14px; color: var(--dim); }
 .auth-error { margin-top: 10px; color: #ff8a8a; white-space: pre-line; font-size: 14px; }
-.auth.resuming .btn-google, .auth.resuming .auth-sub { display: none; }
+.auth.resuming .btn-google, .auth.resuming .auth-sub, .auth.resuming .auth-form, .auth.resuming .auth-or { display: none; }
 .auth.resuming .auth-status:empty::after { content: '불러오는 중…'; }
 
 /* 틀 */
