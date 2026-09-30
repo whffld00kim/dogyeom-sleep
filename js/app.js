@@ -35,6 +35,7 @@
   let recDay = S.dayStart(Date.now());
   let sumWeek = S.weekStart(Date.now());
   let editing = null;   // { id?, type }
+  let memoMonth = (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).getTime(); })();
 
   /* ---------- 공통 ---------- */
   function toast(msg) {
@@ -160,6 +161,54 @@
     $('wk-list').innerHTML = html;
   }
 
+  /* ---------- 성장 메모 모아 보기 ---------- */
+  function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+  function reEsc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  function memoList() {
+    return Object.entries(memos).filter(([, v]) => v && v.text).map(([k, v]) => ({ key: k, text: v.text }))
+      .sort((a, b) => b.key.localeCompare(a.key));
+  }
+  function renderMemos() {
+    if ($('memos-screen').classList.contains('hidden')) return;
+    const q = $('mm-search').value.trim();
+    const all = memoList();
+    const m = new Date(memoMonth);
+    $('mm-month').textContent = `${m.getFullYear()}년 ${m.getMonth() + 1}월`;
+    const nowM = new Date(); $('mm-next').disabled = memoMonth >= new Date(nowM.getFullYear(), nowM.getMonth(), 1).getTime();
+    // 검색 중엔 전체 기간, 아니면 고른 달
+    $('memos-nav').classList.toggle('dim', !!q);
+    const prefix = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`;
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    const list = q ? all.filter(x => words.every(w => x.text.toLowerCase().includes(w))) : all.filter(x => x.key.startsWith(prefix));
+    $('memos-count').textContent = q ? `검색 ${list.length}건 / 전체 ${all.length}건` : `이 달 ${list.length}건 · 전체 ${all.length}건`;
+    const hl = t => { let h = esc(t); for (const w of words) h = h.replace(new RegExp(reEsc(esc(w)), 'gi'), s => `<mark>${s}</mark>`); return h; };
+    $('memos-list').innerHTML = list.length ? list.map(x => {
+      const d = new Date(S.parseYmd(x.key));
+      return `<button class="mcard" data-key="${x.key}"><div class="md">${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${WD[d.getDay()]})<small>${S.age(d.getTime())}</small></div><div class="mt">${hl(x.text)}</div></button>`;
+    }).join('') : `<div class="empty">${q ? '찾는 메모가 없습니다' : '이 달에 쓴 메모가 없습니다'}</div>`;
+  }
+  function openMemos() {
+    const d = new Date(recDay); memoMonth = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+    $('memos-screen').classList.remove('hidden'); renderMemos();
+  }
+  function shiftMonth(n) { const d = new Date(memoMonth); memoMonth = new Date(d.getFullYear(), d.getMonth() + n, 1).getTime(); renderMemos(); }
+  function openMonthPicker() {
+    const y = $('mo-year'), thisYear = new Date().getFullYear();
+    y.innerHTML = ''; for (let yy = 2020; yy <= thisYear; yy++) y.innerHTML += `<option value="${yy}">${yy}년</option>`;
+    y.value = new Date(memoMonth).getFullYear(); fillMonths();
+    $('month-modal').classList.remove('hidden');
+  }
+  function fillMonths() {
+    const yy = +$('mo-year').value, now = new Date(), cnt = {};
+    for (const x of memoList()) { const k = x.key.slice(0, 7); cnt[k] = (cnt[k] || 0) + 1; }
+    let h = '';
+    for (let mm = 1; mm <= 12; mm++) {
+      const t = new Date(yy, mm - 1, 1).getTime(), k = `${yy}-${String(mm).padStart(2, '0')}`;
+      h += `<button class="mo${t === memoMonth ? ' on' : ''}" data-t="${t}" ${t > now.getTime() ? 'disabled' : ''}>${mm}월<small>${cnt[k] ? cnt[k] + '건' : ''}</small></button>`;
+    }
+    $('mo-grid').innerHTML = h;
+  }
+
   /* ---------- 입력 ---------- */
   function openTime(type, ev) {
     editing = ev ? { id: ev.id, type: ev.type } : { type };
@@ -176,7 +225,7 @@
     $('time-modal').classList.remove('hidden');
     setTimeout(() => { try { $('tm-time').showPicker && !ev && $('tm-time').showPicker(); } catch (e) {} }, 50);
   }
-  function closeModals() { for (const id of ['time-modal', 'memo-modal', 'week-modal']) $(id).classList.add('hidden'); editing = null; }
+  function closeModals() { for (const id of ['time-modal', 'memo-modal', 'week-modal', 'month-modal']) $(id).classList.add('hidden'); editing = null; }
 
   async function saveTime() {
     const [hh, mi] = ($('tm-time').value || '').split(':').map(Number);
@@ -217,7 +266,17 @@
     $('rec-next').onclick = () => { recDay = S.addDays(recDay, 1); renderRecord(); };
     $('rec-date').onclick = () => { const i = $('rec-date-input'); i.value = S.ymd(recDay); try { i.showPicker(); } catch (e) { i.click(); } };
     $('rec-date-input').onchange = e => { if (e.target.value) { recDay = S.parseYmd(e.target.value); renderRecord(); } };
-    document.querySelectorAll('.act').forEach(b => b.onclick = () => openTime(b.dataset.type));
+    document.querySelectorAll('.act[data-type]').forEach(b => b.onclick = () => openTime(b.dataset.type));
+    $('open-memos').onclick = openMemos;
+    $('memos-back').onclick = () => $('memos-screen').classList.add('hidden');
+    $('mm-prev').onclick = () => shiftMonth(-1);
+    $('mm-next').onclick = () => shiftMonth(1);
+    $('mm-month').onclick = openMonthPicker;
+    $('mo-year').onchange = fillMonths;
+    $('mo-grid').onclick = e => { const b = e.target.closest('.mo'); if (b && !b.disabled) { memoMonth = +b.dataset.t; closeModals(); renderMemos(); } };
+    $('mo-cancel').onclick = closeModals;
+    $('mm-search').oninput = renderMemos;
+    $('memos-list').onclick = e => { const c = e.target.closest('.mcard'); if (c) { recDay = S.parseYmd(c.dataset.key); $('memos-screen').classList.add('hidden'); show('record'); renderRecord(); } };
     $('rec-events').onclick = e => { const r = e.target.closest('.ev'); if (r) openTime(null, { id: r.dataset.id, ...events[r.dataset.id] }); };
     $('memo-edit').onclick = () => { const m = memos[S.ymd(recDay)]; $('memo-input').value = m ? m.text : ''; $('memo-modal').classList.remove('hidden'); $('memo-input').focus(); };
     $('memo-text').onclick = () => $('memo-edit').onclick();
@@ -279,7 +338,7 @@
         let first = true;
         ref.child('events').on('value', s => { events = s.val() || {}; render(); if (first) { first = false; showApp(); setStatus(''); } },
           e => { setError('불러오기 실패: ' + (e.code || e.message)); });
-        ref.child('memos').on('value', s => { memos = s.val() || {}; renderRecord(); });
+        ref.child('memos').on('value', s => { memos = s.val() || {}; renderRecord(); renderMemos(); });
         try { localStorage.setItem('dsleep_signed_in', '1'); } catch (e) {}
       } catch (e) {
         setStatus('');
@@ -301,9 +360,11 @@
       if (k % 2) { events['n' + n++] = { type: 'sleep', t: day + 13 * H }; events['m' + n++] = { type: 'wake', t: day + 14 * H + 25 * 60 * 1000 }; }
     }
     memos[S.ymd(S.addDays(d, -1))] = { text: '처음으로 혼자 양치했다.' };
+    memos[S.ymd(S.addDays(d, -5))] = { text: '태권도에서 발차기를 칭찬받았다.\n저녁에 뺄셈 게임 1000 단계 성공.' };
+    memos['2026-08-15'] = { text: '할머니 댁에서 혼자 양치하고 잤다.' };
     render(); showApp();
   }
 
   bind();
-  if (DEMO) { demo(); if (new URLSearchParams(location.search).get('tab') === 'sum') show('summary'); } else initFirebase();
+  if (DEMO) { demo(); const tab = new URLSearchParams(location.search).get('tab'); if (tab === 'sum') show('summary'); if (tab === 'memo') openMemos(); if (tab === 'memoq') { openMemos(); $('mm-search').value = '양치'; renderMemos(); } } else initFirebase();
 })();

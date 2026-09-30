@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="css/style.css?v=20260930a" />
+  <link rel="stylesheet" href="css/style.css?v=20260930b" />
 </head>
 <body>
 
@@ -63,6 +63,7 @@
     <div class="actions">
       <button class="act" data-type="sleep"><span class="ev-icon sleep">🌙</span><span>수면</span></button>
       <button class="act" data-type="wake"><span class="ev-icon wake">☀️</span><span>기상</span></button>
+      <button class="act" id="open-memos"><span class="ev-icon memo">📖</span><span>메모</span></button>
     </div>
   </section>
 
@@ -88,6 +89,36 @@
     <button class="tab active" data-page="record"><span class="tab-ico">✏️</span><span>기록</span></button>
     <button class="tab" data-page="summary"><span class="tab-ico">📊</span><span>정리표</span></button>
   </nav>
+</div>
+
+<!-- 성장 메모 모아 보기 (2026-09-30) -->
+<section id="memos-screen" class="memos-screen hidden">
+  <header class="top">
+    <div class="memos-bar">
+      <button class="back" id="memos-back" aria-label="닫기">✕</button>
+      <span class="memos-title">📖 성장 메모</span>
+      <span class="memos-count" id="memos-count"></span>
+    </div>
+    <div class="nav" id="memos-nav">
+      <button class="arrow" id="mm-prev" aria-label="전달">‹</button>
+      <button class="title-btn" id="mm-month"></button>
+      <button class="arrow" id="mm-next" aria-label="다음달">›</button>
+    </div>
+    <div class="search">
+      <input type="search" id="mm-search" placeholder="메모 검색 (전체 기간)" autocomplete="off" />
+    </div>
+  </header>
+  <div class="memos-list" id="memos-list"></div>
+</section>
+
+<!-- 달 고르기 -->
+<div class="modal hidden" id="month-modal">
+  <div class="sheet">
+    <div class="sheet-head"><span>달 고르기</span></div>
+    <div class="wk-selects"><select id="mo-year"></select></div>
+    <div class="mo-grid" id="mo-grid"></div>
+    <button class="sheet-btn" id="mo-cancel">닫기</button>
+  </div>
 </div>
 
 <!-- 시각 입력 -->
@@ -133,7 +164,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="js/sleep.js?v=20260930a"></script>
-<script src="js/app.js?v=20260930a"></script>
+<script src="js/app.js?v=20260930b"></script>
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});

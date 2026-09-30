@@ -62,7 +62,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .memo-title { font-size: 22px; }
 .memo-edit { font-size: 24px; padding: 4px 8px; }
 .memo-text { padding: 14px 18px; white-space: pre-wrap; line-height: 1.6; background: var(--panel); border-bottom: 1px solid var(--line); cursor: pointer; }
-.actions { display: flex; justify-content: center; gap: 36px; padding: 10px 0 8px; border-top: 2px solid var(--pink); background: var(--bg); }
+.actions { display: flex; justify-content: center; gap: 30px; padding: 10px 0 8px; border-top: 2px solid var(--pink); background: var(--bg); }
 .act { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 15px; }
 .act .ev-icon { width: 66px; height: 66px; font-size: 32px; box-shadow: 0 2px 8px rgba(0,0,0,.4); }
 .act:active .ev-icon { transform: scale(.94); }
@@ -115,6 +115,29 @@ textarea { width: 100%; background: #333; color: #fff; border: 1px solid #555; b
 .wk small { color: var(--dim); font-size: 13px; }
 .wk.on { outline: 2px solid var(--pink); }
 .wk:disabled { opacity: .35; }
+
+.ev-icon.memo { background: #f3c27a; }
+
+/* 성장 메모 모아 보기 */
+.memos-screen { position: fixed; inset: 0; z-index: 30; background: var(--bg); display: flex; flex-direction: column; max-width: 760px; margin: 0 auto; }
+.memos-bar { display: flex; align-items: center; gap: 10px; padding: 0 4px 4px; }
+.back { font-size: 22px; width: 44px; height: 44px; color: #ddd; }
+.memos-title { font-size: 20px; font-weight: 600; }
+.memos-count { margin-left: auto; color: var(--dim); font-size: 13px; padding-right: 8px; }
+#memos-nav.dim { opacity: .35; }
+.search { padding: 4px 12px 8px; }
+.search input { width: 100%; font-size: 16px; padding: 11px 14px; border-radius: 22px; border: 1px solid #555; background: #2c2c2c; color: #fff; }
+.memos-list { flex: 1; overflow-y: auto; padding-bottom: 20px; }
+.mcard { display: block; width: 100%; text-align: left; padding: 14px 18px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.mcard .md { color: var(--pink); font-size: 14px; margin-bottom: 6px; }
+.mcard .md small { color: var(--dim); margin-left: 6px; }
+.mcard .mt { white-space: pre-wrap; line-height: 1.6; font-size: 16px; }
+.mcard mark { background: #7a5b1e; color: #fff; border-radius: 3px; padding: 0 2px; }
+.mo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.mo { background: #3a3a3a; border-radius: 8px; padding: 12px 0; font-size: 17px; display: flex; flex-direction: column; align-items: center; }
+.mo small { color: var(--dim); font-size: 11px; min-height: 13px; }
+.mo.on { outline: 2px solid var(--pink); }
+.mo:disabled { opacity: .35; }
 
 .toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); background: #444; color: #fff; padding: 10px 18px; border-radius: 20px; z-index: 60; font-size: 14px; }
 
