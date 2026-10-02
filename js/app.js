@@ -151,7 +151,7 @@
     for (let mm = 1; mm <= 12; mm++) monSel.innerHTML += `<option value="${mm}">${mm}월</option>`;
     yearSel.value = cur.getFullYear(); monSel.value = cur.getMonth() + 1;
     fillWeeks();
-    $('week-modal').classList.remove('hidden');
+    $('week-modal').classList.remove('hidden'); pushLayer('modal');
   }
   function fillWeeks() {
     const yy = +$('wk-year').value, mm = +$('wk-month').value;
@@ -200,14 +200,14 @@
   }
   function openMemos() {
     const d = new Date(recDay); memoMonth = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
-    $('memos-screen').classList.remove('hidden'); renderMemos();
+    $('memos-screen').classList.remove('hidden'); pushLayer('screen'); renderMemos();
   }
   function shiftMonth(n) { const d = new Date(memoMonth); memoMonth = new Date(d.getFullYear(), d.getMonth() + n, 1).getTime(); renderMemos(); }
   function openMonthPicker() {
     const y = $('mo-year'), thisYear = new Date().getFullYear();
     y.innerHTML = ''; for (let yy = 2020; yy <= thisYear; yy++) y.innerHTML += `<option value="${yy}">${yy}년</option>`;
     y.value = new Date(memoMonth).getFullYear(); fillMonths();
-    $('month-modal').classList.remove('hidden');
+    $('month-modal').classList.remove('hidden'); pushLayer('modal');
   }
   function fillMonths() {
     const yy = +$('mo-year').value, now = new Date(), cnt = {};
@@ -277,9 +277,27 @@
     $('tm-del').classList.toggle('hidden', !ev);
     $('time-modal').classList.toggle('sleep', t === 'sleep');
     drawClock();
-    $('time-modal').classList.remove('hidden');
+    $('time-modal').classList.remove('hidden'); pushLayer('modal');
   }
-  function closeModals() { for (const id of ['time-modal', 'memo-modal', 'week-modal', 'month-modal']) $(id).classList.add('hidden'); editing = null; }
+  function hideModals() { for (const id of ['time-modal', 'memo-modal', 'week-modal', 'month-modal']) $(id).classList.add('hidden'); editing = null; }
+  function closeModals() { hideModals(); dropLayer('modal'); }
+  function closeMemos() { $('memos-screen').classList.add('hidden'); dropLayer('screen'); }
+
+  /* ---------- 뒤로 버튼 (2026-10-02) ----------
+     창·메모 화면을 열 때 방문 기록을 한 칸 쌓아, 폰의 뒤로 버튼이 앱을 끄지 않고 그 창만 닫게 한다.
+     버튼(취소·저장 등)으로 닫을 때는 쌓은 칸을 되돌린다 — 이때 오는 popstate는 무시(skipPop) */
+  const layers = []; let skipPop = 0;
+  function pushLayer(k) { if (layers[layers.length - 1] === k) return; layers.push(k); history.pushState({ layer: layers.length }, ''); }
+  function dropLayer(k) {
+    const i = layers.lastIndexOf(k); if (i < 0) return;
+    const n = layers.length - i; layers.length = i; skipPop++; history.go(-n);
+  }
+  window.addEventListener('popstate', () => {
+    if (skipPop) { skipPop--; return; }
+    const k = layers.pop();
+    if (k === 'modal') hideModals();
+    else if (k === 'screen') $('memos-screen').classList.add('hidden');
+  });
 
   async function saveTime() {
     // 값이 비면 날짜 계산이 NaN이 된다 — 2026-10-02 기기 시계의 「삭제」로 화면 날짜가 NaN으로 깨진 일
@@ -326,7 +344,7 @@
     $('rec-date-input').onchange = e => { if (e.target.value) { recDay = S.parseYmd(e.target.value); renderRecord(); } };
     document.querySelectorAll('.act[data-type]').forEach(b => b.onclick = () => openTime(b.dataset.type));
     $('open-memos').onclick = openMemos;
-    $('memos-back').onclick = () => $('memos-screen').classList.add('hidden');
+    $('memos-back').onclick = closeMemos;
     $('mm-prev').onclick = () => shiftMonth(-1);
     $('mm-next').onclick = () => shiftMonth(1);
     $('mm-month').onclick = openMonthPicker;
@@ -334,9 +352,9 @@
     $('mo-grid').onclick = e => { const b = e.target.closest('.mo'); if (b && !b.disabled) { memoMonth = +b.dataset.t; closeModals(); renderMemos(); } };
     $('mo-cancel').onclick = closeModals;
     $('mm-search').oninput = renderMemos;
-    $('memos-list').onclick = e => { const c = e.target.closest('.mcard'); if (c) { recDay = S.parseYmd(c.dataset.key); $('memos-screen').classList.add('hidden'); show('record'); renderRecord(); } };
+    $('memos-list').onclick = e => { const c = e.target.closest('.mcard'); if (c) { recDay = S.parseYmd(c.dataset.key); closeMemos(); show('record'); renderRecord(); } };
     $('rec-events').onclick = e => { if (recentlySwiped($('page-record'))) return; const r = e.target.closest('.ev'); if (r) openTime(null, { id: r.dataset.id, ...events[r.dataset.id] }); };
-    $('memo-edit').onclick = () => { const m = memos[S.ymd(recDay)]; $('memo-input').value = m ? m.text : ''; $('memo-modal').classList.remove('hidden'); $('memo-input').focus(); };
+    $('memo-edit').onclick = () => { const m = memos[S.ymd(recDay)]; $('memo-input').value = m ? m.text : ''; $('memo-modal').classList.remove('hidden'); pushLayer('modal'); $('memo-input').focus(); };
     $('memo-text').onclick = () => $('memo-edit').onclick();
     $('tm-ok').onclick = saveTime; $('tm-cancel').onclick = closeModals; $('tm-del').onclick = deleteEvent;
     bindClock();
