@@ -299,7 +299,13 @@
     $('memo-text').onclick = () => $('memo-edit').onclick();
     $('tm-ok').onclick = saveTime; $('tm-cancel').onclick = closeModals; $('tm-del').onclick = deleteEvent;
     $('tm-time').addEventListener('change', () => { if (quick && editing) saveTime(); });
-    $('tm-time').addEventListener('cancel', () => { if (quick) closeModals(); });   // 시계를 취소로 닫으면 (지원하는 브라우저만)
+    // 시계를 취소로 닫으면 바로 닫기(2026-10-02). 취소 신호는 브라우저마다 달라 세 가지를 다 듣는다:
+    // cancel 이벤트 · 창이 다시 포커스를 받음 · 페이지가 다시 보임. 「설정」 쪽은 change가 먼저 오므로 조금 기다렸다 닫는다
+    // 창만 숨기고 editing은 남긴다 — 포커스 신호가 「설정」보다 먼저 와도 뒤따르는 change가 저장되게. 다음 openTime/closeModals가 정리한다
+    const quickClose = () => setTimeout(() => { if (quick) $('time-modal').classList.add('hidden'); }, 250);
+    $('tm-time').addEventListener('cancel', quickClose);
+    window.addEventListener('focus', () => { if (quick) quickClose(); });
+    document.addEventListener('visibilitychange', () => { if (quick && !document.hidden) quickClose(); });
     $('memo-ok').onclick = saveMemo; $('memo-cancel').onclick = closeModals;
 
     $('sum-prev').onclick = () => { sumWeek = S.addDays(sumWeek, -7); renderSummary(); };
