@@ -1,14 +1,14 @@
 // 도겸 수면 — 저장된 사본으로 먼저 열고 뒤에서 새 파일로 캐시를 바꿔 둔다 (다른 웹앱과 같은 틀, 2026-09-30)
 // ⚠ index.html이 부르는 파일을 바꾸면 CACHE 버전과 OWN 목록을 같이 고친다.
-const CACHE = 'dsleep-v20261001a';
+const CACHE = 'dsleep-v20261002a';
 const OWN = [
   "./",
   "./index.html",
   "./manifest.json",
   "./icons/icon-192.png",
-  "./css/style.css?v=20261001a",
+  "./css/style.css?v=20261002a",
   "./js/sleep.js?v=20260930b",
-  "./js/app.js?v=20261001a"
+  "./js/app.js?v=20261002a"
 ];
 const CDN = [
   "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js",

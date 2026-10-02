@@ -221,6 +221,7 @@
   }
 
   /* ---------- 입력 ---------- */
+  let quick = false;   // 빠른 모드 — 기기 시계의 「설정」이 바로 저장
   function openTime(type, ev) {
     editing = ev ? { id: ev.id, type: ev.type } : { type };
     const t = editing.type;
@@ -233,10 +234,14 @@
     $('tm-time').value = hhmm(when);
     $('tm-date').value = S.ymd(when);
     $('tm-del').classList.toggle('hidden', !ev);
+    // 새로 넣을 때는 빠른 모드(2026-10-02): 뒤의 창(날짜·OK)은 숨기고 기기 시계만 띄워 「설정」이 곧 저장.
+    // 날짜 바꾸기·삭제는 기존 기록을 눌러 들어오는 전체 창에만 남긴다
+    quick = !ev;
+    $('time-modal').classList.toggle('quick', quick);
     $('time-modal').classList.remove('hidden');
-    setTimeout(() => { try { $('tm-time').showPicker && !ev && $('tm-time').showPicker(); } catch (e) {} }, 50);
+    setTimeout(() => { try { $('tm-time').showPicker && quick && $('tm-time').showPicker(); } catch (e) { $('time-modal').classList.remove('quick'); quick = false; } }, 50);
   }
-  function closeModals() { for (const id of ['time-modal', 'memo-modal', 'week-modal', 'month-modal']) $(id).classList.add('hidden'); editing = null; }
+  function closeModals() { for (const id of ['time-modal', 'memo-modal', 'week-modal', 'month-modal']) $(id).classList.add('hidden'); $('time-modal').classList.remove('quick'); editing = null; quick = false; }
 
   async function saveTime() {
     const [hh, mi] = ($('tm-time').value || '').split(':').map(Number);
@@ -293,6 +298,8 @@
     $('memo-edit').onclick = () => { const m = memos[S.ymd(recDay)]; $('memo-input').value = m ? m.text : ''; $('memo-modal').classList.remove('hidden'); $('memo-input').focus(); };
     $('memo-text').onclick = () => $('memo-edit').onclick();
     $('tm-ok').onclick = saveTime; $('tm-cancel').onclick = closeModals; $('tm-del').onclick = deleteEvent;
+    $('tm-time').addEventListener('change', () => { if (quick && editing) saveTime(); });
+    $('tm-time').addEventListener('cancel', () => { if (quick) closeModals(); });   // 시계를 취소로 닫으면 (지원하는 브라우저만)
     $('memo-ok').onclick = saveMemo; $('memo-cancel').onclick = closeModals;
 
     $('sum-prev').onclick = () => { sumWeek = S.addDays(sumWeek, -7); renderSummary(); };

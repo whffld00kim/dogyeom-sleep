@@ -105,6 +105,9 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 /* 모달 */
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 40; padding: 20px; }
 .sheet { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 12px; }
+/* 빠른 모드(새 기록): 기기 시계만 보이게 — 제목 줄만 남기고 나머지는 숨긴다. 시계를 취소하면 빈 곳을 눌러 닫는다 */
+.modal.quick { align-items: flex-start; padding-top: 24px; }
+.modal.quick .tm-body, .modal.quick .sheet-btn { display: none; }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; background: #555; border-radius: 8px; padding: 10px 16px; font-size: 20px; }
 .sheet-head .ev-icon { width: 46px; height: 46px; font-size: 22px; }
 .sheet-head span:only-child { margin: 6px auto; }
