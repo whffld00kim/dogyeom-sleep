@@ -244,10 +244,13 @@
   function closeModals() { for (const id of ['time-modal', 'memo-modal', 'week-modal', 'month-modal']) $(id).classList.add('hidden'); $('time-modal').classList.remove('quick'); editing = null; quick = false; }
 
   async function saveTime() {
-    const [hh, mi] = ($('tm-time').value || '').split(':').map(Number);
-    if (isNaN(hh)) return toast('시각을 넣어 주세요');
+    // 기기 시계의 「삭제」는 값을 빈 문자열로 만들고 change를 보낸다 — 2026-10-02 ''.split(':')가 0:NaN이 돼 날짜가 NaN으로 깨진 일
+    const m = /^(\d{2}):(\d{2})$/.exec($('tm-time').value || '');
+    if (!m) { if (quick) return closeModals(); return toast('시각을 넣어 주세요'); }   // 빠른 모드의 「삭제」는 취소와 같다
+    const hh = +m[1], mi = +m[2];
     const base = S.parseYmd($('tm-date').value || S.ymd(recDay));
     const t = base + (hh * 60 + mi) * S.MIN;
+    if (!isFinite(t)) return toast('시각을 넣어 주세요');
     if (t > Date.now() + 5 * S.MIN) return toast('앞으로의 시각은 넣을 수 없습니다');
     const rec = { type: editing.type, t, by: uid || 'demo', at: Date.now() };
     const id = editing.id;
