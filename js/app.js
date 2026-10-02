@@ -221,7 +221,47 @@
   }
 
   /* ---------- 입력 ---------- */
-  let quick = false;   // 빠른 모드 — 기기 시계의 「설정」이 바로 저장
+  // 원형 시계 (2026-10-02) — 기기 시계는 취소·삭제를 앱이 못 다뤄 앱 안에 직접 그린다.
+  // 시를 고르고 손을 떼면 분으로 넘어간다. 값은 #tm-time(HH:MM)에 두고 saveTime이 읽는다
+  const clk = { h: 7, m: 30, mode: 'h' };
+  const p2 = n => String(n).padStart(2, '0');
+  function drawClock() {
+    $('tm-time').value = p2(clk.h) + ':' + p2(clk.m);
+    $('tm-h').textContent = clk.h % 12 || 12; $('tm-m').textContent = p2(clk.m);
+    $('tm-h').classList.toggle('on', clk.mode === 'h'); $('tm-m').classList.toggle('on', clk.mode === 'm');
+    $('tm-am').classList.toggle('on', clk.h < 12); $('tm-pm').classList.toggle('on', clk.h >= 12);
+    const R = 125, rN = 99, val = clk.mode === 'h' ? clk.h % 12 : clk.m;
+    const rad = ((clk.mode === 'h' ? val * 30 : val * 6) - 90) * Math.PI / 180;
+    const x = R + rN * Math.cos(rad), y = R + rN * Math.sin(rad);
+    let s = `<circle cx="${R}" cy="${R}" r="${R}" fill="#444"/><line x1="${R}" y1="${R}" x2="${x}" y2="${y}" stroke="var(--acc)" stroke-width="2"/>`
+      + `<circle cx="${R}" cy="${R}" r="4" fill="var(--acc)"/><circle cx="${x}" cy="${y}" r="21" fill="var(--acc)"/>`;
+    for (let i = 0; i < 12; i++) {
+      const a = (i * 30 - 90) * Math.PI / 180, hit = clk.mode === 'h' ? val === i : val === i * 5;
+      s += `<text x="${R + rN * Math.cos(a)}" y="${R + rN * Math.sin(a)}"${hit ? ' class="hit"' : ''}>${clk.mode === 'h' ? (i || 12) : p2(i * 5)}</text>`;
+    }
+    if (clk.mode === 'm' && val % 5) s += `<circle cx="${x}" cy="${y}" r="3" fill="#222"/>`;
+    $('tm-dial').innerHTML = s;
+  }
+  function pickClock(e) {
+    const b = $('tm-dial').getBoundingClientRect();
+    let deg = Math.atan2(e.clientY - b.top - b.height / 2, e.clientX - b.left - b.width / 2) * 180 / Math.PI + 90;
+    if (deg < 0) deg += 360;
+    if (clk.mode === 'h') clk.h = (Math.round(deg / 30) % 12) + (clk.h >= 12 ? 12 : 0);
+    else clk.m = Math.round(deg / 6) % 60;
+    drawClock();
+  }
+  function bindClock() {
+    const d = $('tm-dial'); let down = false;
+    d.addEventListener('pointerdown', e => { down = true; d.setPointerCapture(e.pointerId); pickClock(e); });
+    d.addEventListener('pointermove', e => { if (down) pickClock(e); });
+    d.addEventListener('pointerup', () => { if (!down) return; down = false; if (clk.mode === 'h') { clk.mode = 'm'; drawClock(); } });
+    d.addEventListener('pointercancel', () => { down = false; });
+    $('tm-h').onclick = () => { clk.mode = 'h'; drawClock(); };
+    $('tm-m').onclick = () => { clk.mode = 'm'; drawClock(); };
+    $('tm-am').onclick = () => { if (clk.h >= 12) clk.h -= 12; drawClock(); };
+    $('tm-pm').onclick = () => { if (clk.h < 12) clk.h += 12; drawClock(); };
+  }
+
   function openTime(type, ev) {
     editing = ev ? { id: ev.id, type: ev.type } : { type };
     const t = editing.type;
@@ -231,22 +271,20 @@
     if (ev) when = ev.t;
     else if (recDay === S.dayStart(Date.now())) when = Date.now();
     else when = recDay + (t === 'sleep' ? 21 : 7) * 3600 * 1000;   // 지난 날짜면 그럴듯한 시각으로
-    $('tm-time').value = hhmm(when);
+    // 날짜는 고르지 않는다(2026-10-02 사용자 결정) — 새 기록은 보고 있는 날, 수정은 그 기록의 날 그대로
+    const w = new Date(when); clk.h = w.getHours(); clk.m = w.getMinutes(); clk.mode = 'h';
     $('tm-date').value = S.ymd(when);
     $('tm-del').classList.toggle('hidden', !ev);
-    // 새로 넣을 때는 빠른 모드(2026-10-02): 뒤의 창(날짜·OK)은 숨기고 기기 시계만 띄워 「설정」이 곧 저장.
-    // 날짜 바꾸기·삭제는 기존 기록을 눌러 들어오는 전체 창에만 남긴다
-    quick = !ev;
-    $('time-modal').classList.toggle('quick', quick);
+    $('time-modal').classList.toggle('sleep', t === 'sleep');
+    drawClock();
     $('time-modal').classList.remove('hidden');
-    setTimeout(() => { try { $('tm-time').showPicker && quick && $('tm-time').showPicker(); } catch (e) { $('time-modal').classList.remove('quick'); quick = false; } }, 50);
   }
-  function closeModals() { for (const id of ['time-modal', 'memo-modal', 'week-modal', 'month-modal']) $(id).classList.add('hidden'); $('time-modal').classList.remove('quick'); editing = null; quick = false; }
+  function closeModals() { for (const id of ['time-modal', 'memo-modal', 'week-modal', 'month-modal']) $(id).classList.add('hidden'); editing = null; }
 
   async function saveTime() {
-    // 기기 시계의 「삭제」는 값을 빈 문자열로 만들고 change를 보낸다 — 2026-10-02 ''.split(':')가 0:NaN이 돼 날짜가 NaN으로 깨진 일
+    // 값이 비면 날짜 계산이 NaN이 된다 — 2026-10-02 기기 시계의 「삭제」로 화면 날짜가 NaN으로 깨진 일
     const m = /^(\d{2}):(\d{2})$/.exec($('tm-time').value || '');
-    if (!m) { if (quick) return closeModals(); return toast('시각을 넣어 주세요'); }   // 빠른 모드의 「삭제」는 취소와 같다
+    if (!m) return toast('시각을 넣어 주세요');
     const hh = +m[1], mi = +m[2];
     const base = S.parseYmd($('tm-date').value || S.ymd(recDay));
     const t = base + (hh * 60 + mi) * S.MIN;
@@ -301,14 +339,7 @@
     $('memo-edit').onclick = () => { const m = memos[S.ymd(recDay)]; $('memo-input').value = m ? m.text : ''; $('memo-modal').classList.remove('hidden'); $('memo-input').focus(); };
     $('memo-text').onclick = () => $('memo-edit').onclick();
     $('tm-ok').onclick = saveTime; $('tm-cancel').onclick = closeModals; $('tm-del').onclick = deleteEvent;
-    $('tm-time').addEventListener('change', () => { if (quick && editing) saveTime(); });
-    // 시계를 취소로 닫으면 바로 닫기(2026-10-02). 취소 신호는 브라우저마다 달라 세 가지를 다 듣는다:
-    // cancel 이벤트 · 창이 다시 포커스를 받음 · 페이지가 다시 보임. 「설정」 쪽은 change가 먼저 오므로 조금 기다렸다 닫는다
-    // 창만 숨기고 editing은 남긴다 — 포커스 신호가 「설정」보다 먼저 와도 뒤따르는 change가 저장되게. 다음 openTime/closeModals가 정리한다
-    const quickClose = () => setTimeout(() => { if (quick) $('time-modal').classList.add('hidden'); }, 250);
-    $('tm-time').addEventListener('cancel', quickClose);
-    window.addEventListener('focus', () => { if (quick) quickClose(); });
-    document.addEventListener('visibilitychange', () => { if (quick && !document.hidden) quickClose(); });
+    bindClock();
     $('memo-ok').onclick = saveMemo; $('memo-cancel').onclick = closeModals;
 
     $('sum-prev').onclick = () => { sumWeek = S.addDays(sumWeek, -7); renderSummary(); };

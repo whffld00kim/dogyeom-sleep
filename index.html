@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="css/style.css?v=20261002a" />
+  <link rel="stylesheet" href="css/style.css?v=20261002d" />
 </head>
 <body>
 
@@ -137,12 +137,16 @@
   <div class="sheet">
     <div class="sheet-head"><span class="ev-icon" id="tm-icon"></span><span id="tm-title"></span><span class="ev-icon" id="tm-icon2"></span></div>
     <div class="tm-body">
-      <input type="time" id="tm-time" class="big-time" />
-      <input type="date" id="tm-date" class="tm-date" />
+      <div class="tm-hm"><button id="tm-h" class="on">7</button>:<button id="tm-m">30</button></div>
+      <svg id="tm-dial" class="tm-dial" viewBox="0 0 250 250"></svg>
+      <div class="tm-ampm"><button id="tm-am">오전</button><button id="tm-pm">오후</button></div>
+      <input type="hidden" id="tm-time" /><input type="hidden" id="tm-date" />
     </div>
-    <button class="sheet-btn ok" id="tm-ok">OK</button>
-    <button class="sheet-btn danger hidden" id="tm-del">삭제</button>
-    <button class="sheet-btn" id="tm-cancel">취소</button>
+    <div class="tm-act">
+      <button class="sheet-btn" id="tm-cancel">취소</button>
+      <button class="sheet-btn ok" id="tm-ok">저장</button>
+      <button class="sheet-btn danger hidden" id="tm-del">이 기록 삭제</button>
+    </div>
   </div>
 </div>
 
@@ -175,7 +179,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="js/sleep.js?v=20260930b"></script>
-<script src="js/app.js?v=20261002c"></script>
+<script src="js/app.js?v=20261002d"></script>
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
