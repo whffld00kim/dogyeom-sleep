@@ -118,13 +118,22 @@
 
     let cols = '', labels = '', sum = 0, days = 0;
     const today = S.dayStart(Date.now());
+    // 1분이 몇 px인지 — 시각 글자(두 줄 ≈ 24px)가 막대에 들어갈지 px로 판단한다. 정리표가 숨어 있으면 0이라 1px/분으로 어림
+    const pxm = ($('chart').clientHeight || 1440) / 1440;
     for (let k = 0; k < 7; k++) {
       const d0 = S.addDays(w0, k), d = new Date(d0);
       const pieces = S.dayPieces(sess, d0);
       const tot = pieces.reduce((n, p) => n + p.to - p.from, 0);
       if (tot > 0 && d0 < today) { sum += tot; days++; }
       cols += `<button class="col${k % 2 ? ' alt' : ''}" data-day="${d0}">` +
-        pieces.map(p => `<div class="bar${p.open ? ' open' : ''}" style="top:${p.from / 14.4}%;height:${(p.to - p.from) / 14.4}%"></div>`).join('') +
+        pieces.map(p => {
+          // 막대 위에 잠든 시각, 아래에 일어난 시각 (2026-10-03 사용자 요청). 자정에 잘린 쪽·자는 중인 끝은 안 적는다.
+          // 짧은 조각은 글자가 막대 밖으로 나가므로 한 줄(26px)이 안 들어가면 안 적고, 두 줄(56px)이 안 들어가면 한쪽만
+          const len = p.to - p.from, px = len * pxm, s = hm(d0 + p.from * S.MIN), e = hm(d0 + p.to * S.MIN);
+          const top = !p.cutS && px >= 26 ? `<i class="bt bt-s"><small>${s.ap}</small>${s.text}</i>` : '';
+          const bot = !p.cutE && !p.open && (px >= 56 || (!top && px >= 26)) ? `<i class="bt bt-e"><small>${e.ap}</small>${e.text}</i>` : '';
+          return `<div class="bar${p.open ? ' open' : ''}" style="top:${p.from / 14.4}%;height:${len / 14.4}%">${top}${bot}</div>`;
+        }).join('') +
         `</button>`;
       const f = S.fmtDur2(tot);
       const cls = d.getDay() === 0 ? 'sun' : d.getDay() === 6 ? 'sat' : '';
@@ -396,7 +405,10 @@
   function show(page) {
     document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + page));
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.page === page));
+    if (page === 'summary') renderSummary();   // 숨긴 채 그린 정리표는 막대 높이를 몰라 시각 글자를 못 가렸다 — 보일 때 다시 (2026-10-03)
   }
+  let rsT = 0;
+  window.addEventListener('resize', () => { clearTimeout(rsT); rsT = setTimeout(renderSummary, 150); });   // 회전하면 막대 높이가 바뀐다
 
   function showApp() { $('auth-screen').classList.add('hidden'); $('app').classList.remove('hidden'); }
 

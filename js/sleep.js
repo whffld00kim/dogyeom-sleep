@@ -39,13 +39,14 @@
   function dayStart(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); }
   function addDays(ms, n) { const x = new Date(ms); x.setDate(x.getDate() + n); return x.getTime(); }
 
-  // 그날(자정~자정) 안에 들어온 조각들 [{from, to}] — 분 단위 (0~1440)
+  // 그날(자정~자정) 안에 들어온 조각들 [{from, to, open, cutS, cutE}] — 분 단위 (0~1440)
+  // cutS/cutE: 자정에 잘린 쪽 (잠든·일어난 시각이 이 날이 아니라 전날·다음 날에 있다, 2026-10-03)
   function dayPieces(sess, day0) {
     const day1 = addDays(day0, 1);   // 서머타임 없음. 그래도 날짜 연산으로 둔다
     const out = [];
     for (const x of sess) {
       const a = Math.max(x.s, day0), b = Math.min(x.e, day1);
-      if (b > a) out.push({ from: (a - day0) / MIN, to: (b - day0) / MIN, open: x.open });
+      if (b > a) out.push({ from: (a - day0) / MIN, to: (b - day0) / MIN, open: x.open, cutS: a !== x.s, cutE: b !== x.e });
     }
     return out;
   }
