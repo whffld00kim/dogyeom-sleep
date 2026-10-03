@@ -125,15 +125,27 @@
       const d0 = S.addDays(w0, k), d = new Date(d0);
       const pieces = S.dayPieces(sess, d0);
       const tot = pieces.reduce((n, p) => n + p.to - p.from, 0);
+      // 시각 글자 자리 정하기 (2026-10-03). 기본은 막대 바깥(위·아래). 그래프 끝에 닿으면 안쪽(.in).
+      // 잠깐 깼다 다시 잔 날은 앞 막대의 일어난 시각과 뒤 막대의 잠든 시각이 같은 틈에 들어가 겹친다(9/14 사례) →
+      // 틈이 두 줄(2×22px)보다 좁으면 막대가 글자보다 긴 쪽은 안쪽으로, 짧은 쪽은 틈이 한 줄이면 바깥에 두고 아니면 뺀다
+      const LBL = 22;
+      for (const p of pieces) { p.sIn = p.from * pxm < LBL; p.eIn = (1440 - p.to) * pxm < LBL; p.sHide = false; p.eHide = false; }
+      for (let i = 0; i + 1 < pieces.length; i++) {
+        const a = pieces[i], b = pieces[i + 1], gap = (b.from - a.to) * pxm;
+        if (gap >= LBL * 2 + 2) continue;
+        const aFits = (a.to - a.from) * pxm >= LBL + 4, bFits = (b.to - b.from) * pxm >= LBL + 4;
+        if (aFits) a.eIn = true; else if (gap < LBL) a.eHide = true;
+        if (bFits) b.sIn = true; else if (gap < LBL || !a.eIn) b.sHide = true;   // 틈을 앞 글자가 쓰면 못 넣는다
+      }
       if (tot > 0 && d0 < today) { sum += tot; days++; }
       cols += `<button class="col${k % 2 ? ' alt' : ''}" data-day="${d0}">` +
         pieces.map(p => {
           // 막대 바로 위에 잠든 시각, 바로 아래에 일어난 시각 — 막대 바깥이라 짧은 낮잠에도 붙는다 (2026-10-03 사용자 요청,
           // 처음엔 안쪽에 넣었다가 짧은 막대엔 못 넣어 바깥으로). 자정에 잘린 쪽·자는 중인 끝은 안 적는다.
-          // 그래프 위·아래 끝에서 22px 안이면 바깥에 둘 자리가 없어 막대 안쪽(.in)에
+          // 안쪽(.in)·숨김은 위에서 정했다
           const len = p.to - p.from, s = hm(d0 + p.from * S.MIN), e = hm(d0 + p.to * S.MIN);
-          const top = !p.cutS ? `<i class="bt bt-s${p.from * pxm < 22 ? ' in' : ''}"><small>${s.ap}</small>${s.text}</i>` : '';
-          const bot = !p.cutE && !p.open ? `<i class="bt bt-e${(1440 - p.to) * pxm < 22 ? ' in' : ''}"><small>${e.ap}</small>${e.text}</i>` : '';
+          const top = !p.cutS && !p.sHide ? `<i class="bt bt-s${p.sIn ? ' in' : ''}"><small>${s.ap}</small>${s.text}</i>` : '';
+          const bot = !p.cutE && !p.open && !p.eHide ? `<i class="bt bt-e${p.eIn ? ' in' : ''}"><small>${e.ap}</small>${e.text}</i>` : '';
           return `<div class="bar${p.open ? ' open' : ''}" style="top:${p.from / 14.4}%;height:${len / 14.4}%">${top}${bot}</div>`;
         }).join('') +
         `</button>`;
@@ -482,6 +494,7 @@
       events['s' + n++] = { type: 'sleep', t: day + 22 * H + (k % 3) * 20 * 60 * 1000 };
       events['w' + n++] = { type: 'wake', t: S.addDays(day, 1) + 7 * H + 30 * 60 * 1000 + (k % 4) * 10 * 60 * 1000 };
       if (k % 2) { events['n' + n++] = { type: 'sleep', t: day + 13 * H }; events['m' + n++] = { type: 'wake', t: day + 14 * H + 25 * 60 * 1000 }; }
+      if (k === 4) { events['r' + n++] = { type: 'sleep', t: S.addDays(day, 1) + 8 * H + 20 * 60 * 1000 }; events['q' + n++] = { type: 'wake', t: S.addDays(day, 1) + 9 * H + 45 * 60 * 1000 }; }   // 깼다 다시 잠 — 시각 글자 겹침 시험
     }
     memos[S.ymd(S.addDays(d, -1))] = { text: '처음으로 혼자 양치했다.' };
     memos[S.ymd(S.addDays(d, -5))] = { text: '태권도에서 발차기를 칭찬받았다.\n저녁에 뺄셈 게임 1000 단계 성공.' };
