@@ -118,7 +118,8 @@
 
     let cols = '', labels = '', sum = 0, days = 0;
     const today = S.dayStart(Date.now());
-    // 1분이 몇 px인지 — 시각 글자(두 줄 ≈ 24px)가 막대에 들어갈지 px로 판단한다. 정리표가 숨어 있으면 0이라 1px/분으로 어림
+    // 1분이 몇 px인지 — 막대 바깥에 두는 시각 글자(두 줄 ≈ 22px)가 그래프 위·아래 끝을 넘으면 안쪽으로 넣는다.
+    // 정리표가 숨어 있으면 0이라 1px/분으로 어림
     const pxm = ($('chart').clientHeight || 1440) / 1440;
     for (let k = 0; k < 7; k++) {
       const d0 = S.addDays(w0, k), d = new Date(d0);
@@ -127,11 +128,12 @@
       if (tot > 0 && d0 < today) { sum += tot; days++; }
       cols += `<button class="col${k % 2 ? ' alt' : ''}" data-day="${d0}">` +
         pieces.map(p => {
-          // 막대 위에 잠든 시각, 아래에 일어난 시각 (2026-10-03 사용자 요청). 자정에 잘린 쪽·자는 중인 끝은 안 적는다.
-          // 짧은 조각은 글자가 막대 밖으로 나가므로 한 줄(26px)이 안 들어가면 안 적고, 두 줄(56px)이 안 들어가면 한쪽만
-          const len = p.to - p.from, px = len * pxm, s = hm(d0 + p.from * S.MIN), e = hm(d0 + p.to * S.MIN);
-          const top = !p.cutS && px >= 26 ? `<i class="bt bt-s"><small>${s.ap}</small>${s.text}</i>` : '';
-          const bot = !p.cutE && !p.open && (px >= 56 || (!top && px >= 26)) ? `<i class="bt bt-e"><small>${e.ap}</small>${e.text}</i>` : '';
+          // 막대 바로 위에 잠든 시각, 바로 아래에 일어난 시각 — 막대 바깥이라 짧은 낮잠에도 붙는다 (2026-10-03 사용자 요청,
+          // 처음엔 안쪽에 넣었다가 짧은 막대엔 못 넣어 바깥으로). 자정에 잘린 쪽·자는 중인 끝은 안 적는다.
+          // 그래프 위·아래 끝에서 22px 안이면 바깥에 둘 자리가 없어 막대 안쪽(.in)에
+          const len = p.to - p.from, s = hm(d0 + p.from * S.MIN), e = hm(d0 + p.to * S.MIN);
+          const top = !p.cutS ? `<i class="bt bt-s${p.from * pxm < 22 ? ' in' : ''}"><small>${s.ap}</small>${s.text}</i>` : '';
+          const bot = !p.cutE && !p.open ? `<i class="bt bt-e${(1440 - p.to) * pxm < 22 ? ' in' : ''}"><small>${e.ap}</small>${e.text}</i>` : '';
           return `<div class="bar${p.open ? ' open' : ''}" style="top:${p.from / 14.4}%;height:${len / 14.4}%">${top}${bot}</div>`;
         }).join('') +
         `</button>`;
