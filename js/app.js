@@ -71,7 +71,9 @@
   function applyWho() {
     document.body.classList.toggle('me', ME(who));
     document.body.classList.toggle('me-on', meOn);
-    const name = ME(who) ? '나 <span class="face">🙂</span>' : '도겸 <span class="face">🧒</span>';
+    // 켜진 기기: 알약 두 칸(A안, 2026-10-05) / 안 켠 기기: 이름 글자만
+    const seg = w => `<span class="seg${who === w ? ' on' : ''}" data-w="${w}">${w === 'me' ? '나 <span class="face">🙂</span>' : '도겸 <span class="face">🧒</span>'}</span>`;
+    const name = meOn ? seg('dogyeom') + seg('me') : (ME(who) ? '나 <span class="face">🙂</span>' : '도겸 <span class="face">🧒</span>');
     for (const id of ['rec-who', 'sum-who']) $(id).innerHTML = name;
     const memoTitle = ME(who) ? '📖 메모' : '📖 성장 메모';
     for (const id of ['memo-title', 'memos-title', 'memo-modal-title']) $(id).textContent = memoTitle;
@@ -88,9 +90,9 @@
     meOn = on; LS.set('dsleep_me', on ? '1' : null);
     if (!on && ME(who)) { who = 'dogyeom'; LS.set('dsleep_who', null); }
     applyWho(); render(); renderMemos();
-    toast(on ? '「나」 기록을 켰습니다 — 이름을 눌러 바꿉니다' : '「나」 기록을 숨겼습니다');
+    toast(on ? '「나」 기록을 켰습니다 — 위 버튼으로 바꿉니다' : '「나」 기록을 숨겼습니다');
   }
-  // 머리글 이름: 켜져 있으면 탭으로 전환, 길게 누르면(1.2초) 켜기·끄기 — 「나」는 기본 숨김(2026-10-05 사용자 결정)
+  // 머리글 이름: 켜져 있으면 알약 두 칸을 눌러 전환, 길게 누르면(1.2초) 켜기·끄기 — 「나」는 기본 숨김(2026-10-05 사용자 결정)
   function bindWho(el) {
     let tm = 0, long = false;
     const start = () => { long = false; clearTimeout(tm); tm = setTimeout(() => {
@@ -102,7 +104,7 @@
     el.addEventListener('pointerdown', start);
     el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('pointerleave', end);
     el.addEventListener('contextmenu', e => e.preventDefault());
-    el.addEventListener('click', () => { if (long) { long = false; return; } if (meOn) switchWho(ME(who) ? 'dogyeom' : 'me'); });
+    el.addEventListener('click', e => { if (long) { long = false; return; } if (!meOn) return; const s = e.target.closest('.seg'); if (s) switchWho(s.dataset.w); });
   }
 
   /* ---------- 기록 ---------- */

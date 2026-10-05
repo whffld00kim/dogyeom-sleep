@@ -34,9 +34,13 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .who-line { color: #ddd; font-size: 15px; }
 .who { color: inherit; font: inherit; background: none; border: 0; padding: 0; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
 .who-line .age { color: #cfd8ff; }
-/* 「나」 프로필 (2026-10-05): 켜진 기기에서만 이름이 전환 버튼처럼 보인다. 「나」에선 나이·생후·메모 나이 표기를 뺀다 */
-.me-on .who { border-bottom: 1px dashed #888; padding-bottom: 1px; }
-.me-on .who::after { content: ' ⇄'; color: #888; font-size: 11px; }
+/* 「나」 프로필 (2026-10-05): 켜진 기기에서만 이름 자리가 알약 모양 두 칸 「도겸 | 나」가 된다(A안 — 글자 14px 이름이 작아 사용자 요청).
+   안 켠 기기는 글자 그대로. 「나」에선 나이·생후·메모 나이 표기를 뺀다 */
+.me-on .who-line { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.me-on .who { display: inline-flex; height: 36px; border: 1px solid #555; border-radius: 18px; overflow: hidden; background: #2a2a2a; }
+.me-on .who .seg { padding: 0 16px; line-height: 34px; font-size: 16px; color: #9a9a9a; }
+.me-on .who .seg.on { background: var(--blue); color: #fff; }
+.me-on .who .seg .face { font-size: 15px; }
 .me .age, .me .since, .me .mcard .md small { display: none; }
 .face { font-size: 14px; }
 .nav { display: flex; align-items: center; justify-content: space-between; }
