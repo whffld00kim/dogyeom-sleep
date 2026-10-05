@@ -12,12 +12,22 @@
    서로 덮지 않는다. 대신 실시간 구독(on value)으로 받아 화면을 다시 그린다.
 
    `?demo=1` 은 Firebase 없이 예시 데이터로 뜬다 (화면 시험용, 저장 안 됨).
+
+   ── 「나」 프로필 (2026-10-05) ──────────────────
+   같은 앱으로 내 수면도 적는다. 데이터는 가구가 아니라 **내 계정 밑** `my-sleep/{uid}`(규칙: 본인 uid만) —
+   같은 가구의 다른 사람에겐 보이지 않는다. 「나」 전환은 기본 숨김: 이 기기에서 머리글 이름을 **길게 눌러** 켜거나
+   `?me=1`로 연다(localStorage `dsleep_me`). 켜면 머리글 이름을 눌러 도겸 ↔ 나. 「나」에선 나이·생후·성장 메모 표기를 뺀다.
 ============================================= */
 (function () {
   'use strict';
   const S = window.Sleep;
   const $ = id => document.getElementById(id);
-  const DEMO = new URLSearchParams(location.search).has('demo');
+  const QS = new URLSearchParams(location.search);
+  const DEMO = QS.has('demo');
+  const LS = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} } };
+  if (QS.get('me') === '1') LS.set('dsleep_me', '1');
+  let meOn = LS.get('dsleep_me') === '1';                 // 이 기기에서 「나」 전환을 보일지
+  let who = meOn && LS.get('dsleep_who') === 'me' ? 'me' : 'dogyeom';
 
   const firebaseConfig = {
     apiKey: 'AIzaSyAPXiob8XeDunXpDMsLod_TwClqg2JL260',
@@ -30,7 +40,9 @@
   };
 
   let uid = null, ref = null;
-  let events = {}, memos = {};
+  const refs = {};                                        // { dogyeom: RTDB ref, me: RTDB ref }
+  const store = { dogyeom: { events: {}, memos: {} }, me: { events: {}, memos: {} } };   // 프로필별 사본 — 전환이 즉시 되게 둘 다 구독
+  let events = store[who].events, memos = store[who].memos;
   let sess = [];
   let recDay = S.dayStart(Date.now());
   let sumWeek = S.weekStart(Date.now());
@@ -53,6 +65,45 @@
 
   function recompute() { sess = S.sessions(events, Date.now()); }
   function render() { recompute(); renderRecord(); renderSummary(); }
+
+  /* ---------- 프로필 (2026-10-05) ---------- */
+  const ME = who => who === 'me';
+  function applyWho() {
+    document.body.classList.toggle('me', ME(who));
+    document.body.classList.toggle('me-on', meOn);
+    const name = ME(who) ? '나 <span class="face">🙂</span>' : '도겸 <span class="face">🧒</span>';
+    for (const id of ['rec-who', 'sum-who']) $(id).innerHTML = name;
+    const memoTitle = ME(who) ? '📖 메모' : '📖 성장 메모';
+    for (const id of ['memo-title', 'memos-title', 'memo-modal-title']) $(id).textContent = memoTitle;
+    $('memo-input').placeholder = ME(who) ? '오늘 메모' : '오늘 도겸이 이야기';
+    document.title = ME(who) ? '내 수면' : '도겸 수면';
+    events = store[who].events; memos = store[who].memos; ref = refs[who] || null;
+  }
+  function switchWho(w) {
+    if (w === who) return;
+    who = w; LS.set('dsleep_who', who);
+    applyWho(); render(); renderMemos();
+  }
+  function setMeOn(on) {
+    meOn = on; LS.set('dsleep_me', on ? '1' : null);
+    if (!on && ME(who)) { who = 'dogyeom'; LS.set('dsleep_who', null); }
+    applyWho(); render(); renderMemos();
+    toast(on ? '「나」 기록을 켰습니다 — 이름을 눌러 바꿉니다' : '「나」 기록을 숨겼습니다');
+  }
+  // 머리글 이름: 켜져 있으면 탭으로 전환, 길게 누르면(1.2초) 켜기·끄기 — 「나」는 기본 숨김(2026-10-05 사용자 결정)
+  function bindWho(el) {
+    let tm = 0, long = false;
+    const start = () => { long = false; clearTimeout(tm); tm = setTimeout(() => {
+      long = true;
+      if (!meOn) { if (confirm('이 기기에서 「나」 수면 기록을 켤까요?\n(내 계정에만 저장되고 다른 가족에겐 보이지 않습니다)')) setMeOn(true); }
+      else if (confirm('「나」 기록을 이 기기에서 숨길까요?\n(기록은 지워지지 않습니다)')) setMeOn(false);
+    }, 1200); };
+    const end = () => { clearTimeout(tm); };
+    el.addEventListener('pointerdown', start);
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('pointerleave', end);
+    el.addEventListener('contextmenu', e => e.preventDefault());
+    el.addEventListener('click', () => { if (long) { long = false; return; } if (meOn) switchWho(ME(who) ? 'dogyeom' : 'me'); });
+  }
 
   /* ---------- 기록 ---------- */
   function renderRecord() {
@@ -293,7 +344,7 @@
     let when;
     if (ev) when = ev.t;
     else if (recDay === S.dayStart(Date.now())) when = Date.now();
-    else when = recDay + (t === 'sleep' ? 21 : 7) * 3600 * 1000;   // 지난 날짜면 그럴듯한 시각으로
+    else when = recDay + (t === 'sleep' ? (ME(who) ? 22 : 21) : (ME(who) ? 5 : 7)) * 3600 * 1000;   // 지난 날짜면 그럴듯한 시각으로 (나: 22시·5시)
     // 날짜는 고르지 않는다(2026-10-02 사용자 결정) — 새 기록은 보고 있는 날, 수정은 그 기록의 날 그대로
     const w = new Date(when); clk.h = w.getHours(); clk.m = w.getMinutes(); clk.mode = 'h';
     $('tm-date').value = S.ymd(when);
@@ -335,6 +386,7 @@
     const id = editing.id;
     closeModals();
     if (DEMO) { events[id || 'd' + Date.now()] = { ...(events[id] || {}), ...rec }; render(); return; }
+    if (!ref) return toast('저장할 곳이 아직 준비되지 않았습니다');
     recDay = S.dayStart(t); renderRecord();   // RTDB 로컬 이벤트가 await보다 먼저 그리므로 날짜를 먼저 옮긴다
     try {
       // 사람이 손댄 피요로그 기록은 수동 기록으로 승격(src 제거) — 다시 가져오기(import-piyolog.js)가 덮거나 이중 등록하지 않게
@@ -347,12 +399,14 @@
     if (!confirm('이 기록을 지울까요?')) return;
     closeModals();
     if (DEMO) { delete events[id]; render(); return; }
+    if (!ref) return;
     try { await ref.child('events/' + id).remove(); } catch (e) { toast('삭제 실패: ' + (e.code || e.message)); }
   }
   async function saveMemo() {
     const text = $('memo-input').value.trim(), key = S.ymd(recDay);
     closeModals();
     if (DEMO) { memos[key] = text ? { text } : undefined; render(); return; }
+    if (!ref) return;
     try {
       if (text) await ref.child('memos/' + key).set({ text, by: uid, at: Date.now() });
       else await ref.child('memos/' + key).remove();
@@ -395,6 +449,7 @@
     $('chart').onclick = e => { if (recentlySwiped($('page-summary'))) return; const c = e.target.closest('.col'); if (c) { recDay = +c.dataset.day; show('record'); renderRecord(); } };
 
     document.querySelectorAll('.tab').forEach(b => b.onclick = () => show(b.dataset.page));
+    bindWho($('rec-who')); bindWho($('sum-who'));
     swipe($('page-record'), () => $('rec-prev').click(), () => { if (!$('rec-next').disabled) $('rec-next').click(); });
     swipe($('page-summary'), () => $('sum-prev').click(), () => { if (!$('sum-next').disabled) $('sum-next').click(); });
     document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) closeModals(); }));
@@ -470,11 +525,16 @@
       try {
         const hid = (await firebase.database().ref('users/' + uid + '/householdId').get()).val();
         if (!hid) throw new Error('no-household');
-        ref = firebase.database().ref('dogyeom-sleep/' + hid);
+        refs.dogyeom = firebase.database().ref('dogyeom-sleep/' + hid);
+        refs.me = firebase.database().ref('my-sleep/' + uid);        // 본인만 읽고 쓴다 (규칙)
+        applyWho();
         let first = true;
-        ref.child('events').on('value', s => { events = s.val() || {}; render(); if (first) { first = false; showApp(); setStatus(''); } },
-          e => { $('auth-screen').classList.remove('resuming'); setStatus(''); setError('불러오기 실패: ' + (e.code || e.message)); auth.signOut(); });
-        ref.child('memos').on('value', s => { memos = s.val() || {}; renderRecord(); renderMemos(); });
+        const onErr = e => { $('auth-screen').classList.remove('resuming'); setStatus(''); setError('불러오기 실패: ' + (e.code || e.message)); auth.signOut(); };
+        // 두 프로필을 다 구독해 둔다 — 전환이 즉시 되고, 내 기록은 작아서 부담이 없다
+        for (const w of ['dogyeom', 'me']) {
+          refs[w].child('events').on('value', s => { store[w].events = s.val() || {}; if (w === who) { events = store[w].events; render(); } if (first && w === 'dogyeom') { first = false; showApp(); setStatus(''); } }, w === 'dogyeom' ? onErr : () => {});
+          refs[w].child('memos').on('value', s => { store[w].memos = s.val() || {}; if (w === who) { memos = store[w].memos; renderRecord(); renderMemos(); } });
+        }
         try { localStorage.setItem('dsleep_signed_in', '1'); } catch (e) {}
       } catch (e) {
         setStatus('');
@@ -489,6 +549,14 @@
   function demo() {
     const d = S.dayStart(Date.now()), H = 3600 * 1000;
     let n = 0;
+    // 「나」 예시: 22시 전후 취침·5시 전후 기상 (휴직 일정표 틀)
+    for (let k = 8; k >= 1; k--) {
+      const day = S.addDays(d, -k);
+      store.me.events['ms' + k] = { type: 'sleep', t: day + 22 * H + (k % 2) * 25 * 60 * 1000 };
+      store.me.events['mw' + k] = { type: 'wake', t: S.addDays(day, 1) + 5 * H + (k % 3) * 15 * 60 * 1000 };
+    }
+    store.me.memos[S.ymd(S.addDays(d, -2))] = { text: '밤에 폰을 안 봤더니 금방 잠들었다.' };
+    events = store.dogyeom.events; memos = store.dogyeom.memos;   // 아래 예시는 도겸 쪽
     for (let k = 9; k >= 1; k--) {
       const day = S.addDays(d, -k);
       events['s' + n++] = { type: 'sleep', t: day + 22 * H + (k % 3) * 20 * 60 * 1000 };
@@ -499,7 +567,7 @@
     memos[S.ymd(S.addDays(d, -1))] = { text: '처음으로 혼자 양치했다.' };
     memos[S.ymd(S.addDays(d, -5))] = { text: '태권도에서 발차기를 칭찬받았다.\n저녁에 뺄셈 게임 1000 단계 성공.' };
     memos['2026-08-15'] = { text: '할머니 댁에서 혼자 양치하고 잤다.' };
-    render(); showApp();
+    applyWho(); render(); showApp();
   }
 
   bind();

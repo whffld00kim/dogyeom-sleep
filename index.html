@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="css/style.css?v=20261003b" />
+  <link rel="stylesheet" href="css/style.css?v=20261005" />
 </head>
 <body>
 
@@ -43,7 +43,7 @@
     <header class="top rec-top">
       <button class="arrow" id="rec-prev" aria-label="전날">‹</button>
       <div class="rec-head">
-        <div class="who">도겸 <span class="face">🧒</span> <span id="rec-age"></span></div>
+        <div class="who-line"><button class="who" id="rec-who" type="button">도겸 <span class="face">🧒</span></button> <span class="age" id="rec-age"></span></div>
         <button class="title-btn" id="rec-date"></button>
       </div>
       <div class="since"><button class="today-btn" id="rec-today">오늘</button><small>태어난 지</small><span class="since-n"><b id="rec-since"></b>일</span></div>
@@ -63,7 +63,7 @@
           <div id="rec-events"></div>
           <div class="gap"></div>
           <div class="row memo-row" id="memo-row">
-            <span class="memo-title">📖 성장 메모</span>
+            <span class="memo-title" id="memo-title">📖 성장 메모</span>
             <button class="memo-edit" id="memo-edit" aria-label="메모 쓰기">✏️</button>
           </div>
           <div class="memo-text" id="memo-text"></div>
@@ -81,7 +81,7 @@
   <section id="page-summary" class="page">
     <header class="top">
       <button class="today-btn sum-today" id="sum-today">이번 주</button>
-      <div class="who">도겸 <span class="face">🧒</span> <span id="sum-age"></span></div>
+      <div class="who-line"><button class="who" id="sum-who" type="button">도겸 <span class="face">🧒</span></button> <span class="age" id="sum-age"></span></div>
       <div class="nav">
         <button class="arrow" id="sum-prev" aria-label="전주">‹</button>
         <button class="title-btn" id="sum-range"></button>
@@ -107,7 +107,7 @@
   <header class="top">
     <div class="memos-bar">
       <button class="back" id="memos-back" aria-label="닫기">✕</button>
-      <span class="memos-title">📖 성장 메모</span>
+      <span class="memos-title" id="memos-title">📖 성장 메모</span>
       <span class="memos-count" id="memos-count"></span>
     </div>
     <div class="nav" id="memos-nav">
@@ -153,7 +153,7 @@
 <!-- 성장 메모 -->
 <div class="modal hidden" id="memo-modal">
   <div class="sheet">
-    <div class="sheet-head"><span>📖 성장 메모</span></div>
+    <div class="sheet-head"><span id="memo-modal-title">📖 성장 메모</span></div>
     <textarea id="memo-input" rows="7" placeholder="오늘 도겸이 이야기"></textarea>
     <button class="sheet-btn ok" id="memo-ok">저장</button>
     <button class="sheet-btn" id="memo-cancel">취소</button>
@@ -179,7 +179,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="js/sleep.js?v=20261003"></script>
-<script src="js/app.js?v=20261003c"></script>
+<script src="js/app.js?v=20261005"></script>
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});

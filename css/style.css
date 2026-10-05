@@ -31,8 +31,13 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .page { display: none; flex: 1; min-height: 0; flex-direction: column; }
 .page.active { display: flex; }
 .top { text-align: center; padding: 10px 8px 6px; background: var(--bg); position: relative; }
-.who { color: #ddd; font-size: 15px; }
-.who span:last-child { color: #cfd8ff; }
+.who-line { color: #ddd; font-size: 15px; }
+.who { color: inherit; font: inherit; background: none; border: 0; padding: 0; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.who-line .age { color: #cfd8ff; }
+/* 「나」 프로필 (2026-10-05): 켜진 기기에서만 이름이 전환 버튼처럼 보인다. 「나」에선 나이·생후·메모 나이 표기를 뺀다 */
+.me-on .who { border-bottom: 1px dashed #888; padding-bottom: 1px; }
+.me-on .who::after { content: ' ⇄'; color: #888; font-size: 11px; }
+.me .age, .me .since, .me .mcard .md small { display: none; }
 .face { font-size: 14px; }
 .nav { display: flex; align-items: center; justify-content: space-between; }
 .arrow { font-size: 40px; line-height: 1; width: 52px; height: 52px; color: #ddd; }
@@ -183,7 +188,7 @@ textarea { width: 100%; background: #333; color: #fff; border: 1px solid #555; b
    크기는 폰 CSS 폭 약 400px 기준으로 캡처 비율을 옮긴 것 */
 .rec-top { display: flex; align-items: center; padding: 6px 6px 4px; gap: 2px; }
 .rec-top .rec-head { flex: 1; text-align: center; }
-.rec-top .who { font-size: 14px; }
+.rec-top .who-line { font-size: 14px; }
 .rec-top .title-btn { font-size: 19px; font-weight: 500; padding: 2px 4px; }
 .rec-top .arrow { width: 36px; height: 44px; font-size: 34px; }
 .hidden-arrow { display: none; }
