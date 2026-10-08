@@ -41,7 +41,9 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .me-on .who .seg { padding: 0 16px; line-height: 34px; font-size: 16px; color: #9a9a9a; }
 .me-on .who .seg.on { background: var(--blue); color: #fff; }
 .me-on .who .seg .face { font-size: 15px; }
-.me .age, .me .since, .me .mcard .md small { display: none; }
+.me .age, .me .mcard .md small { display: none; }
+/* 「나」에서도 「태어난 지」 칸은 자리를 지킨다 — 칸을 없애면 기록 머리글의 이름 알약이 오른쪽으로 32px 밀려 정리표와 어긋났다 (2026-10-08 사용자 지적). 글자만 숨기고 「오늘」 버튼은 둔다 */
+.me .since small, .me .since .since-n { visibility: hidden; }
 .face { font-size: 14px; }
 .nav { display: flex; align-items: center; justify-content: space-between; }
 .arrow { font-size: 40px; line-height: 1; width: 52px; height: 52px; color: #ddd; }
@@ -194,7 +196,7 @@ textarea { width: 100%; background: #333; color: #fff; border: 1px solid #555; b
 .rec-top .rec-head { flex: 1; text-align: center; }
 .rec-top .who-line { font-size: 14px; }
 .rec-top .title-btn { font-size: 19px; font-weight: 500; padding: 2px 4px; }
-.rec-top .arrow { width: 36px; height: 44px; font-size: 34px; }
+.rec-top .arrow { width: 64px; height: 44px; font-size: 34px; text-align: left; padding-left: 6px; }   /* 오른쪽 .since(64px)와 같은 폭 → 가운데 머리글이 정리표와 같은 자리 (2026-10-08) */
 .hidden-arrow { display: none; }
 .since { width: 64px; text-align: center; line-height: 1.15; color: #ddd; }
 .since small { display: block; font-size: 10px; color: #bbb; }
