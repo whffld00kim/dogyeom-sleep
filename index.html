@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="css/style.css?v=20261008" />
+  <link rel="stylesheet" href="css/style.css?v=20261013a" />
 </head>
 <body>
 
@@ -178,13 +178,18 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script src="js/sleep.js?v=20261003"></script>
-<script src="js/app.js?v=20261008"></script>
+<script src="js/sleep.js?v=20261013a"></script>
+<script src="js/app.js?v=20261013a"></script>
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
-    let reloaded = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloaded) { reloaded = true; location.reload(); } });
+    // 새 버전이 활성화되면(controllerchange) 한 번 새로 고친다. 첫 설치 때도 이 신호가 오는데(제어 중인 워커가 없다가 생김)
+    // 그때는 이미 네트워크에서 받은 최신 파일이라 새로 고칠 필요가 없고, 로그인 칸에 입력하던 것만 지워졌다 (2026-10-13)
+    let reloaded = false, controlled = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!controlled) { controlled = true; return; }
+      if (!reloaded) { reloaded = true; location.reload(); }
+    });
   }
 </script>
 </body>
