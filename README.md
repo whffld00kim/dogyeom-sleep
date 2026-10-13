@@ -32,6 +32,11 @@ my-sleep/{uid}/events · my-sleep/{uid}/memos   — 「나」 프로필, 같은 
 
 `?demo=1` — Firebase 없이 예시 데이터로 뜬다 (저장 안 됨). `&tab=sum`이면 정리표부터.
 
+`npm test` — `test/` 의 자동 시험 (2026-10-13). `js/sleep.js` 순수 함수는 Node 로, 앱 동작과 서비스워커는 Playwright 로
+`index.html` 을 열어 돌린다. 이때 `www.gstatic.com` 의 Firebase 스크립트는 `test/helpers/fake-firebase.js` 로 바꿔 끼운다
+(오프라인이면 쓰기가 멈추고, 서버 반영 때 보안 규칙을 검사하고, 상대 기기의 쓰기를 흉내 낸다). 처음 한 번 `npm install` 과
+`npx playwright install chromium`. 세 화면 폭(360·750·1280) 캡처는 `test/out/` 에 남는다. 배포(GitHub Pages)와는 무관하다.
+
 ## 배포
 
 `git push`면 GitHub Pages가 갱신된다. `index.html`이 부르는 파일을 바꾸면 `?v=`와 `sw.js`의 `CACHE`·`OWN`을 같이 올린다.

@@ -1,0 +1,11 @@
+{
+  "name": "dogyeom-sleep",
+  "private": true,
+  "description": "도겸 수면 — 시험용 package.json (GitHub Pages 배포와 무관)",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
+}
