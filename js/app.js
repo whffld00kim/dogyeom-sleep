@@ -405,9 +405,16 @@
     if (!ref) return toast('저장할 곳이 아직 준비되지 않았습니다');
     recDay = S.dayStart(t); renderRecord();   // RTDB 로컬 이벤트가 await보다 먼저 그리므로 날짜를 먼저 옮긴다
     try {
-      // 사람이 손댄 피요로그 기록은 수동 기록으로 승격(src 제거) — 다시 가져오기(import-piyolog.js)가 덮거나 이중 등록하지 않게
-      if (id) await ref.child('events/' + id).update({ t, by: rec.by, at: rec.at, src: null });
-      else await ref.child('events').push(rec);
+      if (id) {
+        // 사람이 손댄 피요로그 기록은 수동 기록으로 승격(src 제거) — 다시 가져오기(import-piyolog.js)가 덮거나 이중 등록하지 않게.
+        // transaction 으로: 수정 창을 연 사이 상대가 이 기록을 지웠으면(오프라인이었다가 연결될 때 포함) 되살리지도,
+        // type 없는 조각을 만들어 규칙에 막히지도 않고 중단한다 (2026-10-13)
+        const r = await ref.child('events/' + id).transaction(cur => {
+          if (!cur) return;                                   // 없어진 기록 → undefined = 중단
+          const next = { ...cur, t, by: rec.by, at: rec.at }; delete next.src; return next;
+        });
+        if (!r.committed) toast('이미 지워진 기록입니다');
+      } else await ref.child('events').push(rec);
     } catch (e) { toast('저장 실패: ' + (e.code || e.message)); }
   }
   async function deleteEvent() {
