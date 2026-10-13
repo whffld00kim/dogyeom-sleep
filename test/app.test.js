@@ -134,7 +134,12 @@ test('앞으로의 시각은 막는다', () => run({ fake: signedIn() }, async p
   assert.equal(Object.keys(await serverEvents(page)).length, 6);
 }));
 
-test('오프라인: 누른 기록은 화면에 바로 보이지만 서버엔 없고, 연결되면 그때 저장된다 (그 전에 앱이 꺼지면 사라진다)', () => run({ fake: signedIn() }, async page => {
+const journal = page => page.evaluate(() => JSON.parse(localStorage.getItem('dsleep_pending') || 'null'));
+// 앱을 닫았다 다시 여는 것 — 같은 context 라 localStorage 는 남고, 가짜 서버는 넘겨준 상태로 다시 시작한다
+async function reopen(page, server) { await page.addInitScript(st => { window.__FAKE.server = st; }, server); await page.reload(); await waitApp(page); await settle(page); }
+const serverState = page => page.evaluate(() => window.__fake.db.server());
+
+test('오프라인: 누른 기록은 화면에 바로 보이고 서버엔 아직 없다. 연결되면 저장되고 저널에서 지워진다', () => run({ fake: signedIn() }, async page => {
   await waitApp(page);
   await page.evaluate(() => window.__fake.db.goOffline());
   await openNew(page, 'sleep'); await page.click('#tm-ok');
@@ -142,9 +147,71 @@ test('오프라인: 누른 기록은 화면에 바로 보이지만 서버엔 없
   assert.equal(await page.locator('#rec-events .ev').count(), 2, '로컬 반영으로 줄이 보인다');
   assert.equal(Object.keys(await serverEvents(page)).length, 6, '서버엔 아직 없다');
   assert.equal(await page.evaluate(() => window.__fake.db.pending()), 1);
-  assert.equal(await page.isHidden('#toast'), true, '실패도 성공도 아무 안내가 없다');
+  assert.equal((await journal(page)).length, 1, '못 보낸 쓰기가 기기에 적혀 있다');
   await page.evaluate(() => window.__fake.db.goOnline()); await settle(page);
   assert.equal(Object.keys(await serverEvents(page)).length, 7);
+  assert.equal(await journal(page), null, '서버가 받으면 저널에서 지운다');
+}));
+
+test('오프라인에서 누른 기록은 앱을 닫아도 다음에 열 때 같은 키로 저장되고, 또 열어도 두 건이 되지 않는다', () => run({ fake: signedIn() }, async page => {
+  await waitApp(page);
+  await page.evaluate(() => window.__fake.db.goOffline());
+  await openNew(page, 'sleep'); await page.click('#tm-ok'); await page.waitForTimeout(200);
+  const [entry] = await journal(page);
+  assert.equal(entry.kind, 'set'); assert.match(entry.path, new RegExp(`^${EV}/-fake`)); assert.equal(entry.value.type, 'sleep');
+  const before = await serverState(page);
+  await reopen(page, before);                                            // 꺼졌다 켜짐 — 서버는 그 기록을 모른다
+  const evs = await serverEvents(page);
+  assert.equal(Object.keys(evs).length, 7);
+  assert.deepEqual([evs[entry.path.split('/').pop()].type, evs[entry.path.split('/').pop()].t], ['sleep', entry.value.t], '같은 키·같은 값');
+  assert.equal(await journal(page), null);
+  assert.match(await page.textContent('#toast'), /못 보낸 기록 1건을 저장했습니다/);
+  await reopen(page, await serverState(page));                           // 한 번 더 열어도
+  assert.equal(Object.keys(await serverEvents(page)).length, 7, '두 건이 되지 않는다');
+  assert.equal(await page.isHidden('#toast'), true);
+}));
+
+test('오프라인에서 한 수정·삭제·메모도 다음에 열 때 반영된다', () => run({ fake: signedIn() }, async page => {
+  await waitApp(page);
+  page.on('dialog', d => d.accept());
+  await page.evaluate(() => window.__fake.db.goOffline());
+  await page.click('#rec-events .ev[data-id="e-w2"]'); await page.waitForSelector('#time-modal:not(.hidden)'); await page.click('#tm-del');   // 삭제
+  await page.click('#rec-prev');
+  await page.click('#rec-events .ev[data-id="e-n1"]'); await page.waitForSelector('#time-modal:not(.hidden)'); await page.click('#tm-am'); await page.click('#tm-ok');   // 13:00 → 01:00
+  await page.click('#memo-edit'); await page.fill('#memo-input', '오프라인 메모'); await page.click('#memo-ok');
+  await page.waitForTimeout(200);
+  assert.deepEqual((await journal(page)).map(x => x.kind), ['remove', 'edit', 'set']);
+  await reopen(page, await serverState(page));
+  const evs = await serverEvents(page);
+  assert.equal('e-w2' in evs, false, '삭제');
+  assert.deepEqual([evs['e-n1'].type, evs['e-n1'].t, 'src' in evs['e-n1']], ['sleep', kst(2026, 10, 11, 1, 0), false], '수정 — type 유지, src 제거');
+  assert.equal((await page.evaluate(h => window.__fake.db.server()['dogyeom-sleep'][h].memos['2026-10-11'].text, HID)), '오프라인 메모');
+  assert.equal(await journal(page), null);
+  assert.match(await page.textContent('#toast'), /못 보낸 기록 3건/);
+}));
+
+test('되살릴 때 상대가 이미 지운 기록의 수정은 조각을 만들지 않고 조용히 건너뛴다', () => run({ fake: signedIn() }, async page => {
+  await waitApp(page);
+  await page.evaluate(() => window.__fake.db.goOffline());
+  await page.click('#rec-events .ev[data-id="e-w2"]'); await page.waitForSelector('#time-modal:not(.hidden)'); await page.click('#tm-am'); await page.click('#tm-ok');
+  await page.waitForTimeout(200);
+  const st = await serverState(page); delete st['dogyeom-sleep'][HID].events['e-w2'];   // 그사이 상대가 지움
+  await reopen(page, st);
+  assert.equal('e-w2' in await serverEvents(page), false, '유령 기록 없음');
+  assert.equal((await page.evaluate(() => window.__fake.db.log)).rejected.length, 0);
+  assert.equal(await journal(page), null);
+  assert.equal(await page.isHidden('#toast'), true, '건너뛴 것은 알리지 않는다');
+}));
+
+test('온라인 저장이 끝나면 저널은 비고, 규칙에 막힌 쓰기도 저널에서 지워져 다시 보내지 않는다', () => run({ fake: signedIn() }, async page => {
+  await waitApp(page);
+  await openNew(page, 'sleep'); await page.click('#tm-ok'); await settle(page);
+  assert.equal(await journal(page), null);
+  await page.click('#memo-edit'); await page.fill('#memo-input', 'x'.repeat(5001)); await page.click('#memo-ok');
+  assert.match(await toastText(page), /저장 실패: PERMISSION_DENIED/);
+  await settle(page);
+  assert.equal(await journal(page), null);
+  assert.equal(await page.isHidden('#memo-text'), true, '규칙에 막힌 메모는 화면에서도 되돌아간다');
 }));
 
 test('피요로그 기록을 고치면 type 은 남고 src 는 지워져 사람 기록이 된다', () => run({ fake: signedIn() }, async page => {

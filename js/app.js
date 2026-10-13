@@ -39,8 +39,8 @@
     appId: '1:318424534715:web:50a3b43ea5c5325ee5239e'
   };
 
-  let uid = null, ref = null;
-  const refs = {};                                        // { dogyeom: RTDB ref, me: RTDB ref }
+  let uid = null, ref = null, path = null;
+  const refs = {}, paths = {};                            // { dogyeom: RTDB ref, me: RTDB ref } / 같은 것의 경로 문자열
   const store = { dogyeom: { events: {}, memos: {} }, me: { events: {}, memos: {} } };   // 프로필별 사본 — 전환이 즉시 되게 둘 다 구독
   let events = store[who].events, memos = store[who].memos;
   let sess = [];
@@ -92,7 +92,7 @@
     for (const id of ['memo-title', 'memos-title', 'memo-modal-title']) $(id).textContent = memoTitle;
     $('memo-input').placeholder = ME(who) ? '오늘 메모' : '오늘 도겸이 이야기';
     document.title = ME(who) ? '내 수면' : '도겸 수면';
-    events = store[who].events; memos = store[who].memos; ref = refs[who] || null;
+    events = store[who].events; memos = store[who].memos; ref = refs[who] || null; path = paths[who] || null;
   }
   function switchWho(w) {
     if (w === who) return;
@@ -389,6 +389,46 @@
     else if (k === 'screen') $('memos-screen').classList.add('hidden');
   });
 
+  /* ---------- 못 보낸 쓰기 되살리기 (2026-10-13) ----------
+     RTDB 웹 SDK 는 오프라인 쓰기를 메모리에만 두므로, 연결되기 전에 앱이 꺼지면(안드로이드가 탭을 정리하면) 조용히 사라진다.
+     쓰기 전에 localStorage(dsleep_pending)에 적어 두고, 서버가 받으면(또는 규칙에 막혀 실패하면) 지운다. 다음에 열 때
+     남은 것을 같은 경로·같은 값으로 다시 보낸다 — 새 기록은 push 키를 미리 받아 set 하므로 두 번 가도 한 건이고,
+     수정은 transaction(없으면 중단), 삭제·메모는 원래 여러 번 해도 같다. 기록 모양(RTDB)은 그대로다 */
+  const PENDING = 'dsleep_pending';
+  const inflight = new Set();                              // 지금 이 화면에서 보내는 중인 것 — 되살리기와 겹치지 않게
+  const loaded = { dogyeom: false, me: false };            // 수정(transaction)은 그 프로필의 기록이 한 번 온 뒤에 보낸다
+  const pendingList = () => { try { return JSON.parse(LS.get(PENDING) || '[]'); } catch (e) { return []; } };
+  const pendingSave = list => LS.set(PENDING, list.length ? JSON.stringify(list) : null);
+  function perform(op) {
+    const r = firebase.database().ref(op.path);
+    if (op.kind === 'set') return r.set(op.value);
+    if (op.kind === 'remove') return r.remove();
+    // edit: 사람이 손댄 피요로그 기록은 수동 기록으로 승격(src 제거) — 다시 가져오기(import-piyolog.js)가 덮거나 이중 등록하지 않게.
+    // transaction 으로: 수정 창을 연 사이 상대가 이 기록을 지웠으면(오프라인이었다가 연결될 때 포함) 되살리지도,
+    // type 없는 조각을 만들어 규칙에 막히지도 않고 중단한다
+    return r.transaction(cur => { if (!cur) return; const next = { ...cur, ...op.value }; delete next.src; return next; });
+  }
+  // op: { uid, path, kind: 'set'|'edit'|'remove', value? } — 연결될 때까지 멈추는 약속을 돌려준다 (실패하면 던짐)
+  async function write(op) {
+    op.id = op.id || 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    pendingSave(pendingList().filter(x => x.id !== op.id).concat([op]));
+    inflight.add(op.id);
+    try { return await perform(op); }
+    finally { inflight.delete(op.id); pendingSave(pendingList().filter(x => x.id !== op.id)); }
+  }
+  let replaying = Promise.resolve();
+  function replayPending() { replaying = replaying.then(replayNow); }   // 두 프로필이 잇달아 와도 한 번에 하나씩 (안내도 한 번)
+  async function replayNow() {
+    const mine = pendingList().filter(x => x.uid === uid && !inflight.has(x.id) && loaded[x.path.startsWith('my-sleep/') ? 'me' : 'dogyeom']);
+    let n = 0;
+    for (const op of mine) {
+      if (inflight.has(op.id) || !pendingList().some(x => x.id === op.id)) continue;   // 다른 되살리기가 먼저 보냈다
+      try { const r = await write(op); if (!r || r.committed !== false) n++; }   // 수정인데 그사이 지워진 기록이면 조용히 건너뜀
+      catch (e) { toast('저장 실패: ' + (e.code || e.message)); }
+    }
+    if (n) toast(`못 보낸 기록 ${n}건을 저장했습니다`);
+  }
+
   async function saveTime() {
     // 값이 비면 날짜 계산이 NaN이 된다 — 2026-10-02 기기 시계의 「삭제」로 화면 날짜가 NaN으로 깨진 일
     const m = /^(\d{2}):(\d{2})$/.exec($('tm-time').value || '');
@@ -406,15 +446,9 @@
     recDay = S.dayStart(t); renderRecord();   // RTDB 로컬 이벤트가 await보다 먼저 그리므로 날짜를 먼저 옮긴다
     try {
       if (id) {
-        // 사람이 손댄 피요로그 기록은 수동 기록으로 승격(src 제거) — 다시 가져오기(import-piyolog.js)가 덮거나 이중 등록하지 않게.
-        // transaction 으로: 수정 창을 연 사이 상대가 이 기록을 지웠으면(오프라인이었다가 연결될 때 포함) 되살리지도,
-        // type 없는 조각을 만들어 규칙에 막히지도 않고 중단한다 (2026-10-13)
-        const r = await ref.child('events/' + id).transaction(cur => {
-          if (!cur) return;                                   // 없어진 기록 → undefined = 중단
-          const next = { ...cur, t, by: rec.by, at: rec.at }; delete next.src; return next;
-        });
+        const r = await write({ uid, path: path + '/events/' + id, kind: 'edit', value: { t, by: rec.by, at: rec.at } });
         if (!r.committed) toast('이미 지워진 기록입니다');
-      } else await ref.child('events').push(rec);
+      } else await write({ uid, path: path + '/events/' + ref.child('events').push().key, kind: 'set', value: rec });   // push 키만 미리 받는다 (쓰기 없음)
     } catch (e) { toast('저장 실패: ' + (e.code || e.message)); }
   }
   async function deleteEvent() {
@@ -423,7 +457,7 @@
     closeModals();
     if (DEMO) { delete events[id]; render(); return; }
     if (!ref) return;
-    try { await ref.child('events/' + id).remove(); } catch (e) { toast('삭제 실패: ' + (e.code || e.message)); }
+    try { await write({ uid, path: path + '/events/' + id, kind: 'remove' }); } catch (e) { toast('삭제 실패: ' + (e.code || e.message)); }
   }
   async function saveMemo() {
     const text = $('memo-input').value.trim(), key = S.ymd(recDay);
@@ -431,8 +465,8 @@
     if (DEMO) { memos[key] = text ? { text } : undefined; render(); return; }
     if (!ref) return;
     try {
-      if (text) await ref.child('memos/' + key).set({ text, by: uid, at: Date.now() });
-      else await ref.child('memos/' + key).remove();
+      if (text) await write({ uid, path: path + '/memos/' + key, kind: 'set', value: { text, by: uid, at: Date.now() } });
+      else await write({ uid, path: path + '/memos/' + key, kind: 'remove' });
     } catch (e) { toast('저장 실패: ' + (e.code || e.message)); }
   }
 
@@ -550,14 +584,18 @@
       try {
         const hid = (await firebase.database().ref('users/' + uid + '/householdId').get()).val();
         if (!hid) throw new Error('no-household');
-        refs.dogyeom = firebase.database().ref('dogyeom-sleep/' + hid);
-        refs.me = firebase.database().ref('my-sleep/' + uid);        // 본인만 읽고 쓴다 (규칙)
+        paths.dogyeom = 'dogyeom-sleep/' + hid; paths.me = 'my-sleep/' + uid;   // 「나」는 본인만 읽고 쓴다 (규칙)
+        for (const w of ['dogyeom', 'me']) refs[w] = firebase.database().ref(paths[w]);
         applyWho();
         let first = true;
         const onErr = e => { $('auth-screen').classList.remove('resuming'); setStatus(''); setError('불러오기 실패: ' + (e.code || e.message)); auth.signOut(); };
         // 두 프로필을 다 구독해 둔다 — 전환이 즉시 되고, 내 기록은 작아서 부담이 없다
         for (const w of ['dogyeom', 'me']) {
-          refs[w].child('events').on('value', s => { store[w].events = s.val() || {}; if (w === who) { events = store[w].events; render(); } if (first && w === 'dogyeom') { first = false; showApp(); setStatus(''); } }, w === 'dogyeom' ? onErr : () => {});
+          refs[w].child('events').on('value', s => {
+            store[w].events = s.val() || {}; if (w === who) { events = store[w].events; render(); }
+            if (first && w === 'dogyeom') { first = false; showApp(); setStatus(''); }
+            if (!loaded[w]) { loaded[w] = true; replayPending(); }   // 지난번에 못 보낸 쓰기가 있으면 지금
+          }, w === 'dogyeom' ? onErr : () => {});
           refs[w].child('memos').on('value', s => { store[w].memos = s.val() || {}; if (w === who) { memos = store[w].memos; renderRecord(); renderMemos(); } });
         }
         try { localStorage.setItem('dsleep_signed_in', '1'); } catch (e) {}
