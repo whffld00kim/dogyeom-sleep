@@ -66,6 +66,19 @@
   function recompute() { sess = S.sessions(events, Date.now()); }
   function render() { recompute(); renderRecord(); renderSummary(); }
 
+  // 자정을 넘기면 「오늘」·「이번 주」를 보던 화면은 새 날·새 주로 따라간다 (2026-10-13).
+  // 그대로 두면 밤새 켜 둔 태블릿이나 배경에 살아 있던 폰이 아침에도 전날 머리글을 보이고, 기상 시계가
+  // 「전날 7시」에서 시작해 전날로 저장됐다(밤잠은 「자는 중」으로 남음). 일부러 다른 날을 보고 있었다면 그대로 둔다
+  let today = S.dayStart(Date.now());
+  function followToday() {
+    const t = S.dayStart(Date.now());
+    if (t === today) return false;
+    if (recDay === today) recDay = t;
+    if (sumWeek === S.weekStart(today)) sumWeek = S.weekStart(t);
+    today = t;
+    return true;
+  }
+
   /* ---------- 프로필 (2026-10-05) ---------- */
   const ME = who => who === 'me';
   function applyWho() {
@@ -339,6 +352,7 @@
   }
 
   function openTime(type, ev) {
+    if (!ev && followToday()) renderRecord();   // 자정 직후 1분 안(다시 그리기 전)에 눌러도 새 날 기준
     editing = ev ? { id: ev.id, type: ev.type } : { type };
     const t = editing.type;
     $('tm-title').textContent = t === 'sleep' ? '수면' : '기상';
@@ -455,8 +469,10 @@
     swipe($('page-record'), () => $('rec-prev').click(), () => { if (!$('rec-next').disabled) $('rec-next').click(); });
     swipe($('page-summary'), () => $('sum-prev').click(), () => { if (!$('sum-next').disabled) $('sum-next').click(); });
     document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) closeModals(); }));
-    // 자는 중 시간이 흐르도록 1분마다 다시 그림
-    setInterval(() => { if (!document.hidden) render(); }, 60 * 1000);
+    // 자는 중 시간이 흐르도록 1분마다 다시 그림. 배경에서 돌아올 때도(타이머는 배경에서 멈춘다) 바로 다시 그린다
+    const tick = () => { if (!document.hidden) { followToday(); render(); } };
+    setInterval(tick, 60 * 1000);
+    document.addEventListener('visibilitychange', tick);
   }
   // 좌우 스와이프 (2026-09-30) — 기록은 하루, 정리표는 한 주. 왼쪽으로 밀면 다음, 오른쪽으로 밀면 이전.
   // 세로 스크롤과 헷갈리지 않게 가로 60px 이상 · 가로가 세로의 1.5배 이상일 때만
