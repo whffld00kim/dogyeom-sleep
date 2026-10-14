@@ -25,9 +25,27 @@ test('로그인된 기기: 가구를 읽고 기록을 구독해 앱을 보인다
   assert.equal(await page.textContent('#rec-date'), '2026년 10월 12일 (월)');
   assert.equal(await page.locator('#rec-events .ev').count(), 1);                       // 10-12 엔 06:50 기상만
   assert.match(await page.locator('#rec-events .ev .dur').textContent(), /9시간 40분/);  // 21:10 → 06:50
-  assert.equal((await page.textContent('#rec-total')).replace(/\s/g, ''), '6시간50분');
+  assert.equal((await page.textContent('#rec-total')).replace(/\s/g, ''), '밤9시간40분');   // 0~24시 합(6시간 50분)이 아니라 어젯밤 21:10~06:50 (2026-10-14)
   assert.equal(await page.evaluate(() => localStorage.getItem('dsleep_signed_in')), '1');
 }));
+
+test('정리표 날짜 밑: 윗줄 밤잠(그날 아침에 깬 잠)·아랫줄 낮잠, 폰은 9:40 · 넓은 화면은 9시간 40분 (2026-10-14)', async () => {
+  for (const [viewport, n11, n12, nap] of [
+    [{ width: 360, height: 780 }, '🌙10:00', '🌙9:40', '낮 1:30'],
+    [{ width: 1280, height: 800 }, '🌙10시간', '🌙9시간 40분', '낮 1시간 30분']
+  ]) {
+    await run({ fake: signedIn(), viewport }, async page => {
+      await waitApp(page);
+      if (viewport.width < 900) await page.click('.tab[data-page="summary"]');
+      const xl = page.locator('#x-labels .xl small');
+      const vis = async i => (await xl.nth(i).locator('b').evaluateAll(bs => bs.map(b => [...b.childNodes].filter(n => n.nodeType === 3 || getComputedStyle(n).display !== 'none').map(n => n.textContent).join('')))).join('|');
+      assert.equal(await vis(0), `${n11}|${nap}`);          // 10-11(일): 10-10 21:00→07:00, 낮잠 13:00~14:30
+      assert.equal(await vis(1), n12);                      // 10-12(월, 오늘): 21:10→06:50
+      assert.equal((await xl.nth(2).textContent()).trim(), '');   // 내일부터는 빈칸
+      assert.equal(await page.textContent('#sum-meta'), '밤잠 평균 9시간 50분 (2일) · 낮잠 1일, 평균 1시간 30분');
+    });
+  }
+});
 
 test('가구가 없는 계정: 안내를 보이고 로그아웃한다 (기기 표시만 지워지고 「나」 설정은 남는다)', () => run({
   fake: { user: { uid: 'uid-nohouse', email: 'nohouse@example.com' }, server: baseServer({ users: {} }) }

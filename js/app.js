@@ -43,7 +43,7 @@
   const refs = {}, paths = {};                            // { dogyeom: RTDB ref, me: RTDB ref } / 같은 것의 경로 문자열
   const store = { dogyeom: { events: {}, memos: {} }, me: { events: {}, memos: {} } };   // 프로필별 사본 — 전환이 즉시 되게 둘 다 구독
   let events = store[who].events, memos = store[who].memos;
-  let sess = [];
+  let sess = [], split = { nights: [], naps: [], bad: [] };
   let recDay = S.dayStart(Date.now());
   let sumWeek = S.weekStart(Date.now());
   let editing = null;   // { id?, type }
@@ -63,7 +63,7 @@
   function hhmm(ms) { const d = new Date(ms); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
   function hourLabel(i) { const h = i % 12; return h === 0 ? 12 : h; }
 
-  function recompute() { sess = S.sessions(events, Date.now()); }
+  function recompute() { sess = S.sessions(events, Date.now()); split = S.splitSleeps(sess); }
   function render() { recompute(); renderRecord(); renderSummary(); }
 
   // 자정을 넘기면 「오늘」·「이번 주」를 보던 화면은 새 날·새 주로 따라간다 (2026-10-13).
@@ -138,9 +138,13 @@
     }
     strip.innerHTML = html;
 
-    // 그날 합계
-    const tot = S.fmtDur2(S.dayTotal(sess, recDay));
-    $('rec-total').innerHTML = `${tot.h}<small>시간</small><br>${tot.m}<small>분</small>`;
+    // 그날 합계 — 0~24시 합이 아니라 어젯밤(전날 저녁~이날 아침) 밤잠과 이날 낮잠을 따로 (2026-10-14)
+    const ds = S.daySleep(split, recDay);
+    const hmDur = m => { const f = S.fmtDur2(m); return `${f.h ? f.h + '<small>시간</small> ' : ''}${f.m}<small>분</small>`; };
+    let night;
+    if (ds.night != null) night = `밤 ${hmDur(ds.night)}${ds.nightOpen ? ' <span class="live">자는 중</span>' : ''}${ds.wakes ? ` <span class="sub">· ${ds.wakes}번 깸</span>` : ''}`;
+    else night = ds.bad ? '밤 <span class="warn">기상 누락? (합계에서 뺌)</span>' : '밤 <span class="sub">기록 없음</span>';
+    $('rec-total').innerHTML = night + (ds.napCount ? `<br>낮잠 ${hmDur(ds.nap)}${ds.napOpen ? ' <span class="live">자는 중</span>' : ''}` : '');
 
     // 사건 목록 (시각 오름차순)
     const day1 = S.addDays(recDay, 1);
@@ -182,7 +186,7 @@
     for (let i = 0; i <= 8; i++) y += `<span style="top:${i * 12.5}%">${[12, 3, 6, 9][i % 4]}</span>`;
     $('y-axis').innerHTML = y;
 
-    let cols = '', labels = '', sum = 0, days = 0;
+    let cols = '', labels = '', nSum = 0, nDays = 0, napSum = 0, napDays = 0;
     const today = S.dayStart(Date.now());
     // 1분이 몇 px인지 — 막대 바깥에 두는 시각 글자(두 줄 ≈ 22px)가 그래프 위·아래 끝을 넘으면 안쪽으로 넣는다.
     // 정리표가 숨어 있으면 0이라 1px/분으로 어림
@@ -190,7 +194,6 @@
     for (let k = 0; k < 7; k++) {
       const d0 = S.addDays(w0, k), d = new Date(d0);
       const pieces = S.dayPieces(sess, d0);
-      const tot = pieces.reduce((n, p) => n + p.to - p.from, 0);
       // 시각 글자 자리 정하기 (2026-10-03). 기본은 막대 바깥(위·아래). 그래프 끝에 닿으면 안쪽(.in).
       // 잠깐 깼다 다시 잔 날은 앞 막대의 일어난 시각과 뒤 막대의 잠든 시각이 같은 틈에 들어가 겹친다(9/14 사례) →
       // 틈이 두 줄(2×22px)보다 좁으면 막대가 글자보다 긴 쪽은 안쪽으로, 짧은 쪽은 틈이 한 줄이면 바깥에 두고 아니면 뺀다
@@ -203,7 +206,10 @@
         if (aFits) a.eIn = true; else if (gap < LBL) a.eHide = true;
         if (bFits) b.sIn = true; else if (gap < LBL || !a.eIn) b.sHide = true;   // 틈을 앞 글자가 쓰면 못 넣는다
       }
-      if (tot > 0 && d0 < today) { sum += tot; days++; }
+      // 날짜 밑 숫자는 그날 아침에 깬 밤잠(전날 저녁~이날 아침)과 이날 낮잠 (2026-10-14). 막대는 그대로 0~24시
+      const ds = S.daySleep(split, d0);
+      if (ds.night != null && !ds.nightOpen) { nSum += ds.night; nDays++; }
+      if (ds.napCount && !ds.napOpen) { napSum += ds.nap; napDays++; }
       cols += `<button class="col${k % 2 ? ' alt' : ''}" data-day="${d0}">` +
         pieces.map(p => {
           // 막대 바로 위에 잠든 시각, 바로 아래에 일어난 시각 — 막대 바깥이라 짧은 낮잠에도 붙는다 (2026-10-03 사용자 요청,
@@ -215,18 +221,23 @@
           return `<div class="bar${p.open ? ' open' : ''}" style="top:${p.from / 14.4}%;height:${len / 14.4}%">${top}${bot}</div>`;
         }).join('') +
         `</button>`;
-      const f = S.fmtDur2(tot);
       const cls = d.getDay() === 0 ? 'sun' : d.getDay() === 6 ? 'sat' : '';
       labels += `<div class="xl"><span class="${cls}"><i class="long">${d.getMonth() + 1}월 ${d.getDate()}일</i><i class="short">${d.getMonth() + 1}/${d.getDate()}</i></span>` +
-        // 오늘까지는 기록이 없어도 0시간 0분을 적는다 (2026-09-30 사용자 요청 — 날짜 밑 총 시간이 늘 보이게)
-        (d0 <= today ? `<small class="${tot ? '' : 'zero'}">${f.h}시간<br>${f.m}분</small>` : `<small>&nbsp;<br>&nbsp;</small>`) + `</div>`;
+        // 오늘까지는 기록이 없어도 칸을 채운다 (2026-09-30 사용자 요청 — 날짜 밑 숫자가 늘 보이게). 폰은 9:40, 넓은 화면은 9시간 40분
+        (d0 <= today ? `<small>${nightLabel(ds)}<br>${ds.napCount ? `<b class="np${ds.napOpen ? ' live' : ''}">낮 ${durLabel(ds.nap)}</b>` : '&nbsp;'}</small>` : `<small>&nbsp;<br>&nbsp;</small>`) + `</div>`;
     }
     let grid = '';
     // 1시간마다 점선, 3시간마다 실선, 정오는 굵게 (피요로그와 같게, 2026-09-30)
     for (let i = 1; i < 24; i++) grid += `<div class="gl${i % 3 === 0 ? ' major' : ''}${i === 12 ? ' mid' : ''}" style="top:${i / 24 * 100}%"></div>`;
     $('chart').innerHTML = grid + cols;
     $('x-labels').innerHTML = labels;
-    $('sum-meta').textContent = days ? `하루 평균 ${S.fmtDur(sum / days)} · 지난 날 ${days}일 기준` : '';
+    $('sum-meta').textContent = nDays ? `밤잠 평균 ${S.fmtDur(nSum / nDays)} (${nDays}일) · ${napDays ? `낮잠 ${napDays}일, 평균 ${S.fmtDur(napSum / napDays)}` : '낮잠 없음'}` : '';
+  }
+
+  function durLabel(m) { return `<i class="long">${Math.round(m) < 60 ? Math.round(m) + '분' : S.fmtDur(m)}</i><i class="short">${S.fmtHM(m)}</i>`; }   // 1시간 안 되는 낮잠은 「0시간 45분」 대신 「45분」
+  function nightLabel(ds) {
+    if (ds.night != null) return `<b class="nt${ds.nightOpen ? ' live' : ''}"><i class="ico">🌙</i>${durLabel(ds.night)}</b>`;
+    return ds.bad ? '<b class="nt warn">기상 누락?</b>' : '<b class="nt zero"><i class="ico">🌙</i>-</b>';
   }
 
   /* ---------- 주 고르기 ---------- */
@@ -250,10 +261,10 @@
     while (w <= last) {
       const a = new Date(w), b = new Date(S.addDays(w, 6));
       let tot = 0, n = 0;
-      for (let k = 0; k < 7; k++) { const t = S.dayTotal(sess, S.addDays(w, k)); if (t) { tot += t; n++; } }
+      for (let k = 0; k < 7; k++) { const ds = S.daySleep(split, S.addDays(w, k)); if (ds.night != null && !ds.nightOpen) { tot += ds.night; n++; } }
       html += `<button class="wk${w === sumWeek ? ' on' : ''}" data-w="${w}" ${w > nowW ? 'disabled' : ''}>
         <span>${a.getMonth() + 1}/${a.getDate()} ~ ${b.getMonth() + 1}/${b.getDate()}</span>
-        <small>${n ? '평균 ' + S.fmtDur(tot / n) : '기록 없음'}</small></button>`;
+        <small>${n ? '밤잠 평균 ' + S.fmtDur(tot / n) : '기록 없음'}</small></button>`;
       w = S.addDays(w, 7);
     }
     $('wk-list').innerHTML = html;

@@ -80,6 +80,77 @@ test('하루 합계는 밤잠 조각과 낮잠을 더하고, 표시는 시간·�
   assert.equal(S.fmtDur(59.6), '1시간');
 });
 
+/* ---------- 밤잠·낮잠 나누기 (2026-10-14) ---------- */
+const sessOf = (pairs, now = at(2026, 10, 20)) => {
+  const events = {};
+  pairs.forEach(([a, b], i) => { events['s' + i] = ev('sleep', a); if (b) events['w' + i] = ev('wake', b); });
+  return S.sessions(events, now);
+};
+
+test('밤잠은 일어난 날(아침 날짜)에, 낮잠은 잠든 날에 붙는다', () => {
+  const sp = S.splitSleeps(sessOf([
+    [at(2026, 10, 10, 21, 0), at(2026, 10, 11, 7, 0)],
+    [at(2026, 10, 11, 13, 0), at(2026, 10, 11, 14, 30)],
+    [at(2026, 10, 11, 21, 10), at(2026, 10, 12, 6, 50)]
+  ]));
+  assert.deepEqual([sp.nights.length, sp.naps.length, sp.bad.length], [2, 1, 0]);
+  const d11 = S.daySleep(sp, at(2026, 10, 11)), d12 = S.daySleep(sp, at(2026, 10, 12));
+  assert.deepEqual([d11.night, d11.nap, d11.napCount, d11.wakes], [10 * 60, 90, 1, 0]);
+  assert.deepEqual([d12.night, d12.nap, d12.napCount], [9 * 60 + 40, 0, 0]);
+  assert.equal(S.daySleep(sp, at(2026, 10, 10)).night, null);
+  assert.equal(S.fmtHM(9 * 60 + 40), '9:40');
+  assert.equal(S.fmtHM(65), '1:05');
+});
+
+test('저녁 일찍 자고 밤 10시 전에 깬 잠은 낮잠 — 같은 날 밤잠이 둘로 잡히지 않는다', () => {
+  const sp = S.splitSleeps(sessOf([
+    [at(2026, 10, 11, 18, 55), at(2026, 10, 11, 21, 25)],   // 2.5시간 저녁잠 (2022-08-29 사례)
+    [at(2026, 10, 11, 23, 0), at(2026, 10, 12, 8, 0)],
+    [at(2026, 10, 12, 16, 45), at(2026, 10, 12, 22, 5)],    // 5시간이어도 자정 전에 깨면 낮잠 (2022-12-28 사례)
+    [at(2026, 10, 13, 0, 30), at(2026, 10, 13, 8, 0)]
+  ]));
+  assert.equal(S.daySleep(sp, at(2026, 10, 12)).night, 9 * 60);
+  assert.equal(S.daySleep(sp, at(2026, 10, 11)).nap, 150);
+  assert.equal(S.daySleep(sp, at(2026, 10, 12)).nap, 5 * 60 + 20);
+  assert.equal(S.daySleep(sp, at(2026, 10, 13)).night, 7 * 60 + 30);   // 00:30에 잠들어도 밤잠
+});
+
+test('밤중에 깼다 다시 잔 잠은 한 밤으로 묶고 깬 횟수를 센다 (깨어 있던 시간은 빼고)', () => {
+  const sp = S.splitSleeps(sessOf([
+    [at(2026, 10, 11, 20, 0), at(2026, 10, 11, 20, 40)],    // 잠들었다 깸 → 50분 뒤 다시 (앞쪽 90분)
+    [at(2026, 10, 11, 21, 30), at(2026, 10, 12, 2, 20)],
+    [at(2026, 10, 12, 5, 20), at(2026, 10, 12, 9, 20)]      // 3시간 뒤 07시 전 다시 (뒤쪽 3시간 30분, 2022-08-28 사례)
+  ]));
+  const d = S.daySleep(sp, at(2026, 10, 12));
+  assert.deepEqual([sp.nights.length, d.wakes, d.night, d.napCount], [1, 2, 40 + 290 + 240, 0]);
+});
+
+test('13시 넘어 깬 긴 잠은 낮잠이 아니라 밤잠으로 (2023-01-15·12-17 사례) — 13시 기준', () => {
+  const sp = S.splitSleeps(sessOf([[at(2026, 10, 11, 23, 5), at(2026, 10, 12, 12, 5)], [at(2026, 10, 13, 4, 20), at(2026, 10, 13, 12, 10)]]));
+  assert.equal(S.daySleep(sp, at(2026, 10, 12)).night, 13 * 60);
+  assert.equal(S.daySleep(sp, at(2026, 10, 13)).night, 7 * 60 + 50);
+});
+
+test('16시간 넘는 잠은 기상 누락으로 보고 합계에서 빼고, 덮인 날에 표시한다', () => {
+  const sp = S.splitSleeps(sessOf([[at(2026, 5, 21, 23, 50), at(2026, 5, 23, 8, 45)]]));
+  assert.deepEqual([sp.nights.length, sp.naps.length, sp.bad.length], [0, 0, 1]);
+  assert.deepEqual([S.daySleep(sp, at(2026, 5, 21)).bad, S.daySleep(sp, at(2026, 5, 22)).bad, S.daySleep(sp, at(2026, 5, 23)).bad], [false, true, true]);
+  assert.equal(S.daySleep(sp, at(2026, 5, 23)).night, null);
+});
+
+test('자는 중: 밤에 잠들었으면 다음 날 아침 몫의 밤잠, 낮에 잠들었으면 낮잠. 18시간 넘으면 뺀다', () => {
+  let sp = S.splitSleeps(sessOf([[at(2026, 10, 11, 21, 0)]], at(2026, 10, 12, 2, 0)));
+  let d = S.daySleep(sp, at(2026, 10, 12));
+  assert.deepEqual([d.night, d.nightOpen], [5 * 60, true]);
+  sp = S.splitSleeps(sessOf([[at(2026, 10, 12, 0, 40)]], at(2026, 10, 12, 1, 0)));     // 자정 넘어 잠든 중 → 같은 날 아침
+  assert.deepEqual([S.daySleep(sp, at(2026, 10, 12)).night, S.daySleep(sp, at(2026, 10, 12)).nightOpen], [20, true]);
+  sp = S.splitSleeps(sessOf([[at(2026, 10, 12, 13, 0)]], at(2026, 10, 12, 13, 30)));
+  d = S.daySleep(sp, at(2026, 10, 12));
+  assert.deepEqual([d.night, d.nap, d.napOpen], [null, 30, true]);
+  sp = S.splitSleeps(sessOf([[at(2026, 10, 11, 21, 0)]], at(2026, 10, 12, 21, 0)));    // 24시간째 = 기상 안 누름
+  assert.deepEqual([sp.nights.length, sp.naps.length], [0, 0]);
+});
+
 test('만 나이·주 시작·날짜 문자열', () => {
   assert.equal(S.age(at(2026, 10, 13)), '6세 4개월 24일');
   assert.equal(S.age(at(2026, 3, 1)), '5세 9개월 10일');     // 전달(2월 28일) 을 빌려 센다

@@ -107,6 +107,16 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .xl .sun { color: var(--sun); } .xl .sat { color: var(--sat); }
 .xl small { color: #ddd; font-size: 13px; display: block; margin-top: 2px; }
 .xl small.zero { color: #666; }
+/* 날짜 밑: 윗줄 밤잠(그날 아침에 깬 잠), 아랫줄 낮잠 (2026-10-14) */
+.xl small b { font-weight: normal; white-space: nowrap; }
+.xl .ico { font-size: 9px; margin-right: 1px; vertical-align: 1px; }
+.xl .nt.zero { color: #666; }
+.xl .nt.warn { color: #ffb86b; font-size: 11px; }
+.xl .np { color: #9fd3ff; font-size: 12px; }
+.xl .live { color: #9a9adf; }
+.total-text .sub { color: var(--dim); }
+.total-text .live { color: #9a9adf; }
+.total-text .warn { color: #ffb86b; }
 .x-labels { flex: none; }
 .xl i { font-style: normal; white-space: nowrap; }
 .xl .short { display: none; }
