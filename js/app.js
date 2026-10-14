@@ -224,7 +224,7 @@
       const cls = d.getDay() === 0 ? 'sun' : d.getDay() === 6 ? 'sat' : '';
       labels += `<div class="xl"><span class="${cls}"><i class="long">${d.getMonth() + 1}월 ${d.getDate()}일</i><i class="short">${d.getMonth() + 1}/${d.getDate()}</i></span>` +
         // 오늘까지는 기록이 없어도 칸을 채운다 (2026-09-30 사용자 요청 — 날짜 밑 숫자가 늘 보이게). 폰은 9:40, 넓은 화면은 9시간 40분
-        (d0 <= today ? `<small>${nightLabel(ds)}<br>${ds.napCount ? `<b class="np${ds.napOpen ? ' live' : ''}">낮 ${durLabel(ds.nap)}</b>` : '&nbsp;'}</small>` : `<small>&nbsp;<br>&nbsp;</small>`) + `</div>`;
+        (d0 <= today ? `<small>${nightLabel(ds)}<br>${ds.napCount ? `<b class="np${ds.napOpen ? ' live' : ''}"><i class="ico">☀️</i>${durLabel(ds.nap)}</b>` : '&nbsp;'}</small>` : `<small>&nbsp;<br>&nbsp;</small>`) + `</div>`;
     }
     let grid = '';
     // 1시간마다 점선, 3시간마다 실선, 정오는 굵게 (피요로그와 같게, 2026-09-30)

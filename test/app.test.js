@@ -31,8 +31,8 @@ test('로그인된 기기: 가구를 읽고 기록을 구독해 앱을 보인다
 
 test('정리표 날짜 밑: 윗줄 밤잠(그날 아침에 깬 잠)·아랫줄 낮잠, 폰은 9:40 · 넓은 화면은 9시간 40분 (2026-10-14)', async () => {
   for (const [viewport, n11, n12, nap] of [
-    [{ width: 360, height: 780 }, '🌙10:00', '🌙9:40', '낮 1:30'],
-    [{ width: 1280, height: 800 }, '🌙10시간', '🌙9시간 40분', '낮 1시간 30분']
+    [{ width: 360, height: 780 }, '🌙10:00', '🌙9:40', '☀️1:30'],
+    [{ width: 1280, height: 800 }, '🌙10시간', '🌙9시간 40분', '☀️1시간 30분']
   ]) {
     await run({ fake: signedIn(), viewport }, async page => {
       await waitApp(page);
