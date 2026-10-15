@@ -49,6 +49,48 @@
   let editing = null;   // { id?, type }
   let memoMonth = (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).getTime(); })();
 
+  /* ---------- 폰 사본으로 먼저 열기 (2026-10-15) ----------
+     전엔 열 때마다 로그인 확인 → 가구 번호(서버 왕복) → 기록 전체(약 480KB)를 다 받은 뒤에야 화면을 보였다.
+     이제 지난번에 받은 사본(localStorage)으로 바로 그리고, 서버 값이 오면 다시 그린다. 가구 번호도 사본에 둬 왕복 하나를 뺀다.
+     서버 값이 오기 전에는 기록·수정·메모를 막는다 — 다른 기기에서 방금 누른 기록이 아직 안 보여 같은 기록을 두 번 넣지 않게.
+     사본은 계정(uid) 하나분, 로그아웃되면 지운다. 원본은 늘 서버 — 사본이 깨지거나 지워져도 예전처럼 서버를 기다릴 뿐이다.
+     ?nocache=1 은 사본을 안 쓰고 열기(비교용), ?perf=1 은 걸린 시간을 화면 아래에 잠깐 보인다 */
+  const CACHE_KEY = 'dsleep_cache_v1';
+  const NOCACHE = QS.has('nocache'), PERF = QS.has('perf');
+  function readCache() {
+    if (NOCACHE) return null;
+    try { const c = JSON.parse(LS.get(CACHE_KEY) || 'null'); return c && c.uid && c.hid && c.dogyeom ? c : null; } catch (e) { return null; }
+  }
+  let cacheT = 0, cacheHid = null;
+  function saveCacheSoon() {
+    if (DEMO || !uid || !cacheHid) return;
+    clearTimeout(cacheT);
+    cacheT = setTimeout(() => LS.set(CACHE_KEY, JSON.stringify({ uid, hid: cacheHid, at: Date.now(), dogyeom: store.dogyeom, me: store.me })), 800);
+  }
+  function dropCache() { clearTimeout(cacheT); LS.set(CACHE_KEY, null); }
+  const marks = [];
+  function mark(name) {
+    if (!PERF) return;
+    marks.push(name + ' ' + (performance.now() / 1000).toFixed(1) + '초');
+    let el = $('perf'); if (!el) { el = document.createElement('div'); el.id = 'perf'; el.className = 'perf'; document.body.appendChild(el); }
+    el.textContent = marks.join(' · ');
+  }
+  // 서버 값을 아직 못 받은 프로필이면 true — 머리글 아래 작은 표시 + 기록 버튼 흐리게
+  let staleT = 0;
+  function updateStale() {
+    const stale = !DEMO && !loaded[who];
+    document.body.classList.toggle('stale', stale);
+    const b = $('sync-badge');
+    b.classList.toggle('hidden', !stale);
+    clearTimeout(staleT);
+    if (stale) { b.textContent = '최신 기록 확인 중…'; staleT = setTimeout(() => { b.textContent = '연결을 기다리는 중 — 기록은 연결된 뒤에'; }, 6000); }
+  }
+  function notReady() {
+    if (DEMO || loaded[who]) return false;
+    toast('최신 기록을 확인하는 중이에요. 잠시 뒤에 다시 눌러 주세요');
+    return true;
+  }
+
   /* ---------- 공통 ---------- */
   function toast(msg) {
     const el = $('toast'); el.textContent = msg; el.classList.remove('hidden');
@@ -93,6 +135,7 @@
     $('memo-input').placeholder = ME(who) ? '오늘 메모' : '오늘 도겸이 이야기';
     document.title = ME(who) ? '내 수면' : '도겸 수면';
     events = store[who].events; memos = store[who].memos; ref = refs[who] || null; path = paths[who] || null;
+    updateStale();
   }
   function switchWho(w) {
     if (w === who) return;
@@ -363,6 +406,7 @@
   }
 
   function openTime(type, ev) {
+    if (notReady()) return;
     if (!ev && followToday()) renderRecord();   // 자정 직후 1분 안(다시 그리기 전)에 눌러도 새 날 기준
     editing = ev ? { id: ev.id, type: ev.type } : { type };
     const t = editing.type;
@@ -499,7 +543,7 @@
     $('mm-search').oninput = renderMemos;
     $('memos-list').onclick = e => { const c = e.target.closest('.mcard'); if (c) { recDay = S.parseYmd(c.dataset.key); closeMemos(); show('record'); renderRecord(); } };
     $('rec-events').onclick = e => { if (recentlySwiped($('page-record'))) return; const r = e.target.closest('.ev'); if (r) openTime(null, { id: r.dataset.id, ...events[r.dataset.id] }); };
-    $('memo-edit').onclick = () => { const m = memos[S.ymd(recDay)]; $('memo-input').value = m ? m.text : ''; $('memo-modal').classList.remove('hidden'); pushLayer('modal'); $('memo-input').focus(); };
+    $('memo-edit').onclick = () => { if (notReady()) return; const m = memos[S.ymd(recDay)]; $('memo-input').value = m ? m.text : ''; $('memo-modal').classList.remove('hidden'); pushLayer('modal'); $('memo-input').focus(); };
     $('memo-text').onclick = () => $('memo-edit').onclick();
     $('tm-ok').onclick = saveTime; $('tm-cancel').onclick = closeModals; $('tm-del').onclick = deleteEvent;
     bindClock();
@@ -588,13 +632,21 @@
     auth.onAuthStateChanged(async user => {
       if (!user) {
         try { localStorage.removeItem('dsleep_signed_in'); } catch (e) {}
+        dropCache();
         $('auth-screen').classList.remove('resuming', 'hidden'); $('app').classList.add('hidden'); setStatus(''); return;
       }
+      mark('로그인');
+      if (cached && cached.uid !== user.uid) { dropCache(); location.reload(); return; }   // 다른 계정의 사본이 보이고 있었다
       uid = user.uid;
       setStatus('불러오는 중…');
       try {
-        const hid = (await firebase.database().ref('users/' + uid + '/householdId').get()).val();
+        // 가구 번호: 사본에 있으면 기다리지 않고 쓰고, 서버 값은 뒤에서 대조 — 바뀌었으면(가구를 옮김·빠짐) 사본을 버리고 처음부터
+        const hidP = firebase.database().ref('users/' + uid + '/householdId').get().then(s => s.val());
+        let hid = cached ? cached.hid : null;
+        if (hid) hidP.then(v => { if (v !== hid) { dropCache(); location.reload(); } }, () => {});
+        else hid = await hidP;
         if (!hid) throw new Error('no-household');
+        cacheHid = hid; mark('가구');
         paths.dogyeom = 'dogyeom-sleep/' + hid; paths.me = 'my-sleep/' + uid;   // 「나」는 본인만 읽고 쓴다 (규칙)
         for (const w of ['dogyeom', 'me']) refs[w] = firebase.database().ref(paths[w]);
         applyWho();
@@ -604,10 +656,11 @@
         for (const w of ['dogyeom', 'me']) {
           refs[w].child('events').on('value', s => {
             store[w].events = s.val() || {}; if (w === who) { events = store[w].events; render(); }
-            if (first && w === 'dogyeom') { first = false; showApp(); setStatus(''); }
-            if (!loaded[w]) { loaded[w] = true; replayPending(); }   // 지난번에 못 보낸 쓰기가 있으면 지금
+            if (first && w === 'dogyeom') { first = false; showApp(); setStatus(''); mark('기록'); }
+            if (!loaded[w]) { loaded[w] = true; updateStale(); replayPending(); }   // 지난번에 못 보낸 쓰기가 있으면 지금
+            saveCacheSoon();
           }, w === 'dogyeom' ? onErr : () => {});
-          refs[w].child('memos').on('value', s => { store[w].memos = s.val() || {}; if (w === who) { memos = store[w].memos; renderRecord(); renderMemos(); } });
+          refs[w].child('memos').on('value', s => { store[w].memos = s.val() || {}; if (w === who) { memos = store[w].memos; renderRecord(); renderMemos(); } saveCacheSoon(); });
         }
         try { localStorage.setItem('dsleep_signed_in', '1'); } catch (e) {}
       } catch (e) {
@@ -645,5 +698,12 @@
   }
 
   bind();
+  // 로그인했던 기기 + 사본이 있으면 서버를 기다리지 않고 바로 그린다 (위 「폰 사본으로 먼저 열기」)
+  const cached = !DEMO && LS.get('dsleep_signed_in') === '1' ? readCache() : null;
+  if (cached) {
+    uid = cached.uid; cacheHid = cached.hid;
+    for (const w of ['dogyeom', 'me']) { const c = cached[w] || {}; store[w].events = c.events || {}; store[w].memos = c.memos || {}; }
+    applyWho(); render(); renderMemos(); showApp(); mark('사본');
+  }
   if (DEMO) { demo(); const tab = new URLSearchParams(location.search).get('tab'); if (tab === 'sum') show('summary'); if (tab === 'memo') openMemos(); if (tab === 'memoq') { openMemos(); $('mm-search').value = '양치'; renderMemos(); } } else initFirebase();
 })();

@@ -391,3 +391,59 @@ for (const [name, viewport] of [['360 폰 접은 화면', { width: 360, height: 
     }
   }));
 }
+
+/* ---------- 폰 사본으로 먼저 열기 (2026-10-15) ---------- */
+// 한 번 온라인으로 열어 사본을 남긴 뒤, 같은 기기에서 서버가 늦는(오프라인) 상태로 다시 연다
+async function reopenFromCache(page, fakeOverride) {
+  await page.waitForFunction(() => !!localStorage.getItem('dsleep_cache_v1'), null, { timeout: 5000 });
+  await page.addInitScript(cfg => { window.__FAKE = cfg; }, fakeOverride);
+  await page.reload();
+}
+
+test('폰 사본: 다음에 열면 서버를 기다리지 않고 사본으로 바로 보이고, 서버 값이 오기 전엔 기록 버튼을 막는다', () => run({ fake: signedIn() }, async page => {
+  await waitApp(page);
+  await reopenFromCache(page, signedIn({ online: false }));
+  await waitApp(page);                                                                   // 서버(오프라인)를 안 기다리고 열렸다
+  assert.equal(await page.locator('#rec-events .ev').count(), 1, '사본의 10-12 기상 기록이 보인다');
+  assert.equal(await page.evaluate(() => document.body.classList.contains('stale')), true);
+  assert.match(await page.textContent('#sync-badge'), /최신 기록 확인 중/);
+  await page.click('.act[data-type="sleep"]');
+  assert.match(await toastText(page), /확인하는 중/);
+  assert.equal(await page.isHidden('#time-modal'), true, '시각 창이 열리지 않는다');
+  await page.evaluate(() => window.__fake.db.goOnline());
+  await page.waitForFunction(() => !document.body.classList.contains('stale'), null, { timeout: 5000 });
+  assert.equal(await page.isHidden('#sync-badge'), true);
+  await page.click('.act[data-type="sleep"]');
+  assert.equal(await page.isVisible('#time-modal'), true, '서버 값이 온 뒤엔 기록할 수 있다');
+}));
+
+test('폰 사본: 연 사이 다른 기기에서 넣은 기록은 서버 값이 오면 반영되고, 사본도 새 값으로 바뀐다', () => run({ fake: signedIn() }, async page => {
+  await waitApp(page);
+  await reopenFromCache(page, signedIn({ online: false }));
+  await waitApp(page);
+  await page.evaluate(([p, t]) => window.__fake.db.serverSet(p, { type: 'sleep', t, by: 'uid-test-b', at: 2 }), [`${EV}/e-x1`, kst(2026, 10, 12, 13, 0)]);
+  assert.equal(await page.locator('#rec-events .ev').count(), 1, '오프라인이라 아직 안 보인다');
+  await page.evaluate(() => window.__fake.db.goOnline());
+  await page.waitForFunction(() => document.querySelectorAll('#rec-events .ev').length === 2, null, { timeout: 5000 });
+  await page.waitForFunction(() => /e-x1/.test(localStorage.getItem('dsleep_cache_v1') || ''), null, { timeout: 5000 });
+}));
+
+test('폰 사본: 가구 번호를 사본에서 쓰고, 로그아웃되면 사본을 지우고 로그인 화면으로', () => run({ fake: signedIn() }, async page => {
+  await waitApp(page);
+  await page.waitForFunction(() => !!localStorage.getItem('dsleep_cache_v1'), null, { timeout: 5000 });
+  const c = JSON.parse(await page.evaluate(() => localStorage.getItem('dsleep_cache_v1')));
+  assert.equal(c.uid, UID); assert.equal(c.hid, HID);
+  await page.evaluate(() => window.__fake.auth.setUser(null));
+  await page.waitForSelector('#auth-screen:not(.hidden)', { timeout: 5000 });
+  assert.equal(await page.evaluate(() => localStorage.getItem('dsleep_cache_v1')), null);
+}));
+
+test('폰 사본: 다른 계정의 사본이면 쓰지 않는다', () => run({ fake: signedIn() }, async page => {
+  await waitApp(page);
+  await page.waitForFunction(() => !!localStorage.getItem('dsleep_cache_v1'), null, { timeout: 5000 });
+  await page.evaluate(() => { const c = JSON.parse(localStorage.getItem('dsleep_cache_v1')); c.uid = 'uid-someone-else'; localStorage.setItem('dsleep_cache_v1', JSON.stringify(c)); });
+  await page.reload();
+  await waitApp(page);   // 남의 사본을 버리고 다시 열어 내 기록으로 (사본도 내 것으로 바뀐다)
+  await page.waitForFunction(u => JSON.parse(localStorage.getItem('dsleep_cache_v1') || '{}').uid === u, UID, { timeout: 5000 });
+  assert.equal(await page.locator('#rec-events .ev').count(), 1);
+}));

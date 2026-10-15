@@ -188,6 +188,11 @@ textarea { width: 100%; background: #333; color: #fff; border: 1px solid #555; b
 .mo.on { outline: 2px solid var(--pink); }
 .mo:disabled { opacity: .35; }
 
+/* 폰 사본으로 연 뒤 서버 값을 기다리는 동안 (2026-10-15) */
+.actions { position: relative; }
+.sync-badge { position: absolute; left: 50%; bottom: calc(100% + 10px); transform: translateX(-50%); background: rgba(60,60,60,.92); color: #ddd; padding: 5px 14px; border-radius: 14px; z-index: 55; font-size: 12px; pointer-events: none; white-space: nowrap; }
+.stale .act[data-type] .ev-icon { opacity: .45; }
+.perf { position: fixed; left: 8px; right: 8px; bottom: 4px; z-index: 70; font-size: 11px; color: #9f9; text-align: center; pointer-events: none; }
 .toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); background: #444; color: #fff; padding: 10px 18px; border-radius: 20px; z-index: 60; font-size: 14px; }
 
 /* 태블릿 가로 (갤럭시 탭 S7+ 약 1323×804) — 기록|정리표를 나란히 */

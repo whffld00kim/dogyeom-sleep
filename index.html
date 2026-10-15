@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="css/style.css?v=20261015" />
+  <link rel="stylesheet" href="css/style.css?v=20261015b" />
 </head>
 <body>
 
@@ -69,6 +69,7 @@
           <div class="memo-text" id="memo-text"></div>
         </div>
         <div class="actions">
+          <div class="sync-badge hidden" id="sync-badge"></div>
           <button class="act" data-type="sleep"><span class="ev-icon sleep">🌙</span><span>수면</span></button>
           <button class="act" data-type="wake"><span class="ev-icon wake">☀️</span><span>기상</span></button>
           <button class="act" id="open-memos"><span class="ev-icon memo">📖</span><span>메모</span></button>
@@ -178,8 +179,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script src="js/sleep.js?v=20261015"></script>
-<script src="js/app.js?v=20261015"></script>
+<script src="js/sleep.js?v=20261015b"></script>
+<script src="js/app.js?v=20261015b"></script>
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
