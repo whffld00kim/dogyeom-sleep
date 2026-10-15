@@ -1,7 +1,11 @@
 # 도겸 수면
 
 도겸이 잔 시각·일어난 시각을 부부가 같이 기록하는 웹앱 (2026-09-30).
-https://whffld00kim.github.io/dogyeom-sleep/
+**https://dogyeom-sleep.web.app** (2026-10-15부터 — Firebase Hosting 전용 사이트. 옛 주소 https://whffld00kim.github.io/dogyeom-sleep/ 는 옮겨 갈 동안만 그대로 둔다)
+
+- 배포: `firebase deploy --only hosting --project minsung-buboo2` (PowerShell에서). `git push`는 소스 보관 + 옛 주소 갱신일 뿐 새 주소엔 안 올라간다
+- 왜 옮겼나: github.io 한 주소를 웹앱 여럿이 나눠 써서 보관함(localStorage 5MB)·크롬 설치 판정·로그인 저장값이 섞였다. 주소가 따로면 앱마다 따로다
+- 로그인 허용 주소(Firebase Auth authorizedDomains)에 `dogyeom-sleep.web.app` 추가함
 
 - **기록** 탭: 날짜별 수면·기상 사건, 그날의 밤잠(어젯밤)·낮잠 합계, 성장 메모. 줄을 누르면 시각 수정·삭제
 - 시각 입력은 **앱 안에 그린 원형 시계** (2026-10-02, 기기 시계는 취소·삭제를 앱이 못 다뤄 바꿈). 시를 고르고 손을 떼면 분으로, 위 숫자로 시·분 전환, 아래 오전/오후. 날짜는 고르지 않는다 — 새 기록은 보고 있는 날, 수정은 그 기록의 날. 삭제는 기록 줄을 눌러 연 창에만
