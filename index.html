@@ -2,6 +2,17 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
+  <script>
+    // 옛 주소(github.io)로 열면 새 주소로 넘긴다 (2026-10-16 — 내 폰·태블릿·아내 폰 모두 새 주소로 여는 것 확인 뒤).
+    // 이 기기에 못 보낸 기록(dsleep_pending)이 남아 있으면 넘기지 않고 앱을 띄워 먼저 보내게 한다 — 그 기록은 옛 주소의 보관함에만 있다.
+    // 보내고 나면 다음에 열 때 넘어간다. 옛 주소의 서비스워커가 저장본을 먼저 보여 주므로 첫 실행은 옛 화면일 수 있다
+    (function () {
+      if (!/\.github\.io$/.test(location.hostname)) return;
+      var pend = null; try { pend = localStorage.getItem('dsleep_pending'); } catch (e) {}
+      if (pend && pend !== '[]') return;
+      location.replace('https://dogyeom-sleep.web.app/' + location.search + location.hash);
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#1f1f1f" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -14,7 +25,7 @@
   <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin />
   <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
   <link rel="preconnect" href="https://www.gstatic.com" />
-  <link rel="stylesheet" href="css/style.css?v=20261016b" />
+  <link rel="stylesheet" href="css/style.css?v=20261016c" />
 </head>
 <body>
 
@@ -183,8 +194,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script src="js/sleep.js?v=20261016b"></script>
-<script src="js/app.js?v=20261016b"></script>
+<script src="js/sleep.js?v=20261016c"></script>
+<script src="js/app.js?v=20261016c"></script>
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});

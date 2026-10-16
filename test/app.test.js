@@ -506,6 +506,22 @@ test('도겸 ↔ 나 전환: 머리글 높이가 같아 아래 화면이 오르�
   near(await top(), b, '정리표 위치도 그대로');
 }));
 
+test('옛 주소(github.io)로 열면 새 주소로 넘기고, 못 보낸 기록이 남은 기기는 넘기지 않는다 (2026-10-16)', async () => {
+  const html = require('fs').readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  for (const pending of [false, true]) {
+    const context = await env.browser.newContext({ serviceWorkers: 'block' });
+    const page = await context.newPage();
+    if (pending) await page.addInitScript(() => { if (location.hostname.endsWith('github.io')) localStorage.setItem('dsleep_pending', '[{"id":"p1"}]'); });
+    await page.route('https://whffld00kim.github.io/**', r => r.request().url().endsWith('/dogyeom-sleep/?me=1') ? r.fulfill({ status: 200, contentType: 'text/html', body: html }) : r.fulfill({ status: 404, body: '' }));
+    await page.route('https://dogyeom-sleep.web.app/**', r => r.fulfill({ status: 200, contentType: 'text/html', body: '<title>new</title>' }));
+    await page.route('https://www.gstatic.com/**', r => r.fulfill({ status: 404, body: '' }));
+    await page.goto('https://whffld00kim.github.io/dogyeom-sleep/?me=1').catch(() => {});
+    if (pending) { await page.waitForTimeout(300); assert.match(page.url(), /github\.io\/dogyeom-sleep\//, '못 보낸 기록이 있으면 옛 주소에 머문다'); }
+    else { await page.waitForURL('https://dogyeom-sleep.web.app/?me=1', { timeout: 5000 }); }
+    await context.close();
+  }
+});
+
 test('정리표: 폰에서 숨어 있으면 서버 값이 와도 그리지 않고, 탭을 열면 그린다', () => run({ fake: signedIn() }, async page => {
   await waitApp(page);
   assert.equal(await page.locator('#chart .col').count(), 0, '숨은 정리표는 아직 안 그렸다');
