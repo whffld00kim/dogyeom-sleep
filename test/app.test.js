@@ -491,6 +491,21 @@ test('로그인 확인 전(폰이 느릴 때)에 누른 기록도 받아 두었�
   assert.equal(await page.isHidden('#toast'), true, '이 화면에서 누른 것은 「못 보낸 기록」 안내를 띄우지 않는다');
 }));
 
+test('도겸 ↔ 나 전환: 머리글 높이가 같아 아래 화면이 오르내리지 않는다 (나이 줄은 글자만 숨김, 2026-10-16)', () => run({ fake: signedIn(), query: '?me=1' }, async page => {
+  await waitApp(page);
+  // 1px 안쪽(소수점 반올림 — 빈 요약 줄 등)은 같은 것으로 본다
+  const top = () => page.evaluate(() => [document.getElementById('rec-events').getBoundingClientRect().top, document.getElementById('chart').getBoundingClientRect().top].map(Math.round));
+  const near = (x, y, msg) => assert.ok(x.every((v, i) => Math.abs(v - y[i]) <= 1), msg + ` (${x} / ${y})`);
+  const a = await top();
+  await page.click('#rec-who .seg[data-w="me"]');
+  assert.equal(await page.isVisible('#rec-age'), false, '「나」에선 나이 글자가 안 보인다');
+  near(await top(), a, '기록 목록 위치가 그대로');
+  await page.click('.tab[data-page="summary"]');
+  const b = await top();
+  await page.click('#sum-who .seg[data-w="dogyeom"]');
+  near(await top(), b, '정리표 위치도 그대로');
+}));
+
 test('정리표: 폰에서 숨어 있으면 서버 값이 와도 그리지 않고, 탭을 열면 그린다', () => run({ fake: signedIn() }, async page => {
   await waitApp(page);
   assert.equal(await page.locator('#chart .col').count(), 0, '숨은 정리표는 아직 안 그렸다');
