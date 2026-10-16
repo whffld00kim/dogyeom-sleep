@@ -15,7 +15,7 @@
    - get() 은 온라인일 때만 답한다 (오프라인이면 연결될 때까지 대기 — 실제 SDK 와 같음).
    - 캐시가 없을 때(오프라인 첫 구독) on('value') 는 연결될 때까지 울리지 않는다.
 
-   설정은 window.__FAKE 로 받는다: { user: {uid,email}|null, accounts: [{email,pw,uid}], googleUser, server: {...}, online: true, deny: ['경로 접두어'] }
+   설정은 window.__FAKE 로 받는다: { user: {uid,email}|null, authDelay: ms, accounts: [{email,pw,uid}], googleUser, server: {...}, online: true, deny: ['경로 접두어'] }
    시험에서 쓰는 손잡이: window.__fake = { db: { server(), local(), goOffline(), goOnline(), serverSet(), pending(), log }, auth: { setUser() } } */
 (function () {
   'use strict';
@@ -182,7 +182,7 @@
   function setUser(u) { user = u; db.uid = u ? u.uid : null; for (const cb of authCbs) cb(u); }
   const auth = {
     setPersistence: () => Promise.resolve(),
-    onAuthStateChanged(cb) { authCbs.push(cb); setTimeout(() => cb(user), 0); return () => {}; },
+    onAuthStateChanged(cb) { authCbs.push(cb); setTimeout(() => cb(user), cfg.authDelay || 0); return () => {}; },   // authDelay: 로그인 복원이 늦는 폰 흉내 (2026-10-16)
     async signInWithEmailAndPassword(email, pw) {
       const a = (cfg.accounts || []).find(x => x.email === email && x.pw === pw);
       if (!a) throw mkAuthErr('auth/invalid-credential');

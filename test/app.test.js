@@ -154,7 +154,11 @@ test('앞으로의 시각은 막는다', () => run({ fake: signedIn() }, async p
 
 const journal = page => page.evaluate(() => JSON.parse(localStorage.getItem('dsleep_pending') || 'null'));
 // 앱을 닫았다 다시 여는 것 — 같은 context 라 localStorage 는 남고, 가짜 서버는 넘겨준 상태로 다시 시작한다
-async function reopen(page, server) { await page.addInitScript(st => { window.__FAKE.server = st; }, server); await page.reload(); await waitApp(page); await settle(page); }
+// 화면을 떠날 때 사본을 바로 쓰므로(2026-10-16) 다시 열면 사본으로 먼저 뜬다 — 서버 값이 와서(stale 풀림) 되살리기를 보낸 뒤까지 기다린다
+async function reopen(page, server) {
+  await page.addInitScript(st => { window.__FAKE.server = st; }, server); await page.reload(); await waitApp(page);
+  await page.waitForFunction(() => !document.body.classList.contains('stale'), null, { timeout: 5000 }); await settle(page);
+}
 const serverState = page => page.evaluate(() => window.__fake.db.server());
 
 test('오프라인: 누른 기록은 화면에 바로 보이고 서버엔 아직 없다. 연결되면 저장되고 저널에서 지워진다', () => run({ fake: signedIn() }, async page => {
@@ -400,21 +404,98 @@ async function reopenFromCache(page, fakeOverride) {
   await page.reload();
 }
 
-test('폰 사본: 다음에 열면 서버를 기다리지 않고 사본으로 바로 보이고, 서버 값이 오기 전엔 기록 버튼을 막는다', () => run({ fake: signedIn() }, async page => {
+test('폰 사본: 다음에 열면 서버를 기다리지 않고 사본으로 바로 보이고, 서버 값이 오기 전엔 수정·메모만 막는다', () => run({ fake: signedIn() }, async page => {
   await waitApp(page);
   await reopenFromCache(page, signedIn({ online: false }));
   await waitApp(page);                                                                   // 서버(오프라인)를 안 기다리고 열렸다
   assert.equal(await page.locator('#rec-events .ev').count(), 1, '사본의 10-12 기상 기록이 보인다');
   assert.equal(await page.evaluate(() => document.body.classList.contains('stale')), true);
   assert.match(await page.textContent('#sync-badge'), /최신 기록 확인 중/);
-  await page.click('.act[data-type="sleep"]');
+  await page.click('#rec-events .ev');                                                   // 기존 기록 수정은 막는다
   assert.match(await toastText(page), /확인하는 중/);
-  assert.equal(await page.isHidden('#time-modal'), true, '시각 창이 열리지 않는다');
+  assert.equal(await page.isHidden('#time-modal'), true, '수정 창이 열리지 않는다');
+  await page.click('#memo-edit');
+  assert.equal(await page.isHidden('#memo-modal'), true, '메모 창도 열리지 않는다');
   await page.evaluate(() => window.__fake.db.goOnline());
   await page.waitForFunction(() => !document.body.classList.contains('stale'), null, { timeout: 5000 });
   assert.equal(await page.isHidden('#sync-badge'), true);
-  await page.click('.act[data-type="sleep"]');
-  assert.equal(await page.isVisible('#time-modal'), true, '서버 값이 온 뒤엔 기록할 수 있다');
+  await page.click('#rec-events .ev');
+  assert.equal(await page.isVisible('#time-modal'), true, '서버 값이 온 뒤엔 고칠 수 있다');
+}));
+
+/* ---------- 서버 확인 전에 누른 새 기록 (2026-10-16) ---------- */
+test('서버 확인 전: 수면을 누르면 바로 저장·표시되고, 서버 값이 오면 보낸다 (안내 토스트 없음)', () => run({ fake: signedIn() }, async page => {
+  await waitApp(page);
+  await reopenFromCache(page, signedIn({ online: false }));
+  await waitApp(page);
+  await openNew(page, 'sleep'); await page.click('#tm-ok'); await page.waitForTimeout(200);
+  assert.equal(await page.locator('#rec-events .ev').count(), 2, '누른 기록이 바로 보인다');
+  const [entry] = await journal(page);
+  assert.equal(entry.blind, 1); assert.equal(entry.value.type, 'sleep');
+  assert.equal(Object.keys(await serverEvents(page)).length, 6, '서버엔 아직 없다');
+  await page.reload(); await waitApp(page);                                              // 그사이 앱이 꺼졌다 켜져도
+  assert.equal(await page.locator('#rec-events .ev').count(), 2, '다시 열어도 받아 둔 기록이 보인다');
+  await page.evaluate(() => window.__fake.db.goOnline()); await settle(page);
+  await page.waitForFunction(() => !localStorage.getItem('dsleep_pending'), null, { timeout: 5000 });
+  const evs = await serverEvents(page);
+  const key = entry.path.split('/').pop();
+  assert.deepEqual([evs[key].type, evs[key].t], ['sleep', entry.value.t], '같은 키·같은 값으로 저장');
+  assert.equal(Object.keys(evs).length, 7);
+  assert.equal(await page.locator('#rec-events .ev').count(), 2);
+}));
+
+test('서버 확인 전: 그사이 다른 기기가 같은 순간의 수면을 넣었으면, 방금 누른 것은 버리고 알린다', () => run({ fake: signedIn() }, async page => {
+  await waitApp(page);
+  await reopenFromCache(page, signedIn({ online: false }));
+  await waitApp(page);
+  // 상대가 2분 전 수면을 기록 (이 기기는 오프라인이라 모른다)
+  await page.evaluate(p => window.__fake.db.serverSet(p, { type: 'sleep', t: Date.now() - 2 * 60 * 1000, by: 'uid-test-b', at: 3 }), `${EV}/e-other`);
+  await openNew(page, 'sleep'); await page.click('#tm-ok'); await page.waitForTimeout(200);
+  await page.evaluate(() => window.__fake.db.goOnline());
+  assert.match(await toastText(page), /다른 기기에서 이미[\s\S]*수면[\s\S]*넣지 않았어요/);
+  await settle(page);
+  const evs = await serverEvents(page);
+  assert.equal(Object.keys(evs).length, 7, '상대 기록 하나만 늘었다');
+  assert.ok(evs['e-other']);
+  assert.equal(await journal(page), null);
+  assert.equal(await page.locator('#rec-events .ev').count(), 2, '내 것은 화면에서도 빠지고 상대 것이 보인다');
+}));
+
+test('서버 확인 전: 상대 기록이 반대 종류(기상)거나 1시간 넘게 떨어져 있으면 그대로 보낸다', () => run({ fake: signedIn() }, async page => {
+  await waitApp(page);
+  await reopenFromCache(page, signedIn({ online: false }));
+  await waitApp(page);
+  await page.evaluate(p => window.__fake.db.serverSet(p, { type: 'wake', t: Date.now() - 5 * 60 * 1000, by: 'uid-test-b', at: 3 }), `${EV}/e-wake`);
+  await page.evaluate(p => window.__fake.db.serverSet(p, { type: 'sleep', t: Date.now() - 3 * 60 * 60 * 1000, by: 'uid-test-b', at: 3 }), `${EV}/e-nap`);
+  await openNew(page, 'sleep'); await page.click('#tm-ok'); await page.waitForTimeout(200);
+  await page.evaluate(() => window.__fake.db.goOnline());
+  await page.waitForFunction(() => !localStorage.getItem('dsleep_pending'), null, { timeout: 5000 });
+  await settle(page);
+  assert.equal(Object.keys(await serverEvents(page)).length, 9, '상대 둘 + 내 것 하나');
+}));
+
+test('로그인 확인 전(폰이 느릴 때)에 누른 기록도 받아 두었다가, 로그인·서버 값 뒤에 보낸다', () => run({ fake: signedIn() }, async page => {
+  await waitApp(page);
+  await reopenFromCache(page, signedIn({ authDelay: 1500 }));
+  await waitApp(page);
+  await openNew(page, 'wake'); await page.click('#tm-ok'); await page.waitForTimeout(100);
+  const [entry] = await journal(page);
+  assert.equal(entry.blind, 1);
+  assert.doesNotMatch(entry.path, /-fake/, 'SDK 를 부르지 않고 키를 직접 만들었다');
+  assert.match(entry.path, new RegExp(`^${EV}/[-0-9A-Za-z_]{20}$`), 'push 키 모양');
+  assert.equal(await page.locator('#rec-events .ev').count(), 2);
+  await page.waitForFunction(() => !localStorage.getItem('dsleep_pending'), null, { timeout: 5000 });
+  await settle(page);
+  const evs = await serverEvents(page);
+  assert.equal(evs[entry.path.split('/').pop()].type, 'wake');
+  assert.equal(await page.isHidden('#toast'), true, '이 화면에서 누른 것은 「못 보낸 기록」 안내를 띄우지 않는다');
+}));
+
+test('정리표: 폰에서 숨어 있으면 서버 값이 와도 그리지 않고, 탭을 열면 그린다', () => run({ fake: signedIn() }, async page => {
+  await waitApp(page);
+  assert.equal(await page.locator('#chart .col').count(), 0, '숨은 정리표는 아직 안 그렸다');
+  await page.click('.tab[data-page="summary"]');
+  assert.equal(await page.locator('#chart .col').count(), 7);
 }));
 
 test('폰 사본: 연 사이 다른 기기에서 넣은 기록은 서버 값이 오면 반영되고, 사본도 새 값으로 바뀐다', () => run({ fake: signedIn() }, async page => {

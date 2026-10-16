@@ -52,22 +52,54 @@
   /* ---------- 폰 사본으로 먼저 열기 (2026-10-15) ----------
      전엔 열 때마다 로그인 확인 → 가구 번호(서버 왕복) → 기록 전체(약 480KB)를 다 받은 뒤에야 화면을 보였다.
      이제 지난번에 받은 사본(localStorage)으로 바로 그리고, 서버 값이 오면 다시 그린다. 가구 번호도 사본에 둬 왕복 하나를 뺀다.
-     서버 값이 오기 전에는 기록·수정·메모를 막는다 — 다른 기기에서 방금 누른 기록이 아직 안 보여 같은 기록을 두 번 넣지 않게.
      사본은 계정(uid) 하나분, 로그아웃되면 지운다. 원본은 늘 서버 — 사본이 깨지거나 지워져도 예전처럼 서버를 기다릴 뿐이다.
-     ?nocache=1 은 사본을 안 쓰고 열기(비교용), ?perf=1 은 걸린 시간을 화면 아래에 잠깐 보인다 */
+     ?nocache=1 은 사본을 안 쓰고 열기(비교용), ?perf=1 은 걸린 시간을 화면 아래에 잠깐 보인다
+
+     ── 서버 확인 전에 누른 새 기록 (2026-10-16) ──
+     10/15엔 서버 값이 오기 전엔 기록을 막았다. 그런데 로그인 확인 → DB 연결 → 기록 전체 수신이 줄줄이라 폰에서 1~5초를
+     못 눌렀다(아이가 잠들 때 열자마자 누르는 앱인데). 이제 수면·기상 새 기록은 그 사이에도 받는다: 화면에 바로 그리고
+     못 보낸 쓰기 저널(dsleep_pending)에 `blind` 표시로 적어 두었다가, 서버 값이 처음 오면 **사본에 없던 새 기록 중
+     같은 종류가 1시간 안에 연달아 있으면**(상대가 방금 같은 순간을 눌렀다) 버리고 알리고, 아니면 보낸다(settleHeld).
+     기록 수정·삭제·메모는 지금처럼 서버 값이 온 뒤에만 — 남이 고친 것을 모른 채 덮지 않게 */
   const CACHE_KEY = 'dsleep_cache_v1';
   const NOCACHE = QS.has('nocache'), PERF = QS.has('perf');
   function readCache() {
     if (NOCACHE) return null;
     try { const c = JSON.parse(LS.get(CACHE_KEY) || 'null'); return c && c.uid && c.hid && c.dogyeom ? c : null; } catch (e) { return null; }
   }
-  let cacheT = 0, cacheHid = null;
+  let cacheT = 0, cacheHid = null, cacheDirty = false;
+  function saveCacheNow() {
+    if (!cacheDirty || !uid || !cacheHid) return;
+    cacheDirty = false;
+    LS.set(CACHE_KEY, JSON.stringify({ uid, hid: cacheHid, at: Date.now(), dogyeom: store.dogyeom, me: store.me }));
+  }
+  // 사본 저장(약 560KB 직렬화)은 0.8초 뒤, 그것도 한가할 때 — 막 누른 손과 겹치면 멈칫한다 (2026-10-16). 화면을 떠날 땐 바로
   function saveCacheSoon() {
     if (DEMO || !uid || !cacheHid) return;
+    cacheDirty = true;
     clearTimeout(cacheT);
-    cacheT = setTimeout(() => LS.set(CACHE_KEY, JSON.stringify({ uid, hid: cacheHid, at: Date.now(), dogyeom: store.dogyeom, me: store.me })), 800);
+    cacheT = setTimeout(() => window.requestIdleCallback ? requestIdleCallback(saveCacheNow, { timeout: 3000 }) : saveCacheNow(), 800);
   }
-  function dropCache() { clearTimeout(cacheT); LS.set(CACHE_KEY, null); }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) saveCacheNow(); });
+  function dropCache() { clearTimeout(cacheT); cacheDirty = false; LS.set(CACHE_KEY, null); }
+  // 두 기록 묶음이 같은지 — 서버 값이 사본과 같으면 다시 그리지도, 사본을 다시 쓰지도 않는다 (4천 건이라도 1ms 안쪽)
+  function sameEvents(a, b) {
+    const ka = Object.keys(a);
+    if (ka.length !== Object.keys(b).length) return false;
+    for (const k of ka) {
+      const x = a[k], y = b[k];
+      if (!y || x.type !== y.type || x.t !== y.t || x.at !== y.at || x.by !== y.by || x.src !== y.src) return false;
+    }
+    return true;
+  }
+  // RTDB push 키와 같은 모양(시각 8자 + 무작위 12자) — 로그인 확인 전엔 SDK 의 push() 를 부르지 않으려고
+  const PUSH_CHARS = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
+  function pushKey() {
+    let now = Date.now(), s = '';
+    for (let i = 0; i < 8; i++) { s = PUSH_CHARS.charAt(now % 64) + s; now = Math.floor(now / 64); }
+    for (let i = 0; i < 12; i++) s += PUSH_CHARS.charAt(Math.floor(Math.random() * 64));
+    return s;
+  }
   const marks = [];
   function mark(name) {
     if (!PERF) return;
@@ -75,7 +107,7 @@
     let el = $('perf'); if (!el) { el = document.createElement('div'); el.id = 'perf'; el.className = 'perf'; document.body.appendChild(el); }
     el.textContent = marks.join(' · ');
   }
-  // 서버 값을 아직 못 받은 프로필이면 true — 머리글 아래 작은 표시 + 기록 버튼 흐리게
+  // 서버 값을 아직 못 받은 프로필이면 true — 기록 버튼 위 작은 표시 (버튼은 그대로 눌린다, 2026-10-16)
   let staleT = 0;
   function updateStale() {
     const stale = !DEMO && !loaded[who];
@@ -83,8 +115,9 @@
     const b = $('sync-badge');
     b.classList.toggle('hidden', !stale);
     clearTimeout(staleT);
-    if (stale) { b.textContent = '최신 기록 확인 중…'; staleT = setTimeout(() => { b.textContent = '연결을 기다리는 중 — 기록은 연결된 뒤에'; }, 6000); }
+    if (stale) { b.textContent = '최신 기록 확인 중…'; staleT = setTimeout(() => { b.textContent = '연결을 기다리는 중 — 누른 기록은 연결되면 보냅니다'; }, 6000); }
   }
+  // 수정·삭제·메모만 막는다 (새 기록은 위 「서버 확인 전에 누른 새 기록」)
   function notReady() {
     if (DEMO || loaded[who]) return false;
     toast('최신 기록을 확인하는 중이에요. 잠시 뒤에 다시 눌러 주세요');
@@ -106,7 +139,11 @@
   function hourLabel(i) { const h = i % 12; return h === 0 ? 12 : h; }
 
   function recompute() { sess = S.sessions(events, Date.now()); split = S.splitSleeps(sess); }
-  function render() { recompute(); renderRecord(); renderSummary(); }
+  // 정리표가 안 보이면 그리지 않는다 — 폰은 탭을 열 때(show), 태블릿 가로는 늘 보인다 (2026-10-16)
+  const WIDE = window.matchMedia('(min-width: 900px) and (orientation: landscape)');
+  const sumVisible = () => WIDE.matches || $('page-summary').classList.contains('active');
+  let drawn = false;
+  function render() { drawn = true; recompute(); renderRecord(); if (sumVisible()) renderSummary(); }
 
   // 자정을 넘기면 「오늘」·「이번 주」를 보던 화면은 새 날·새 주로 따라간다 (2026-10-13).
   // 그대로 두면 밤새 켜 둔 태블릿이나 배경에 살아 있던 폰이 아침에도 전날 머리글을 보이고, 기상 시계가
@@ -406,7 +443,7 @@
   }
 
   function openTime(type, ev) {
-    if (notReady()) return;
+    if (ev && notReady()) return;   // 새 기록은 서버 확인 전에도 받는다 (2026-10-16)
     if (!ev && followToday()) renderRecord();   // 자정 직후 1분 안(다시 그리기 전)에 눌러도 새 날 기준
     editing = ev ? { id: ev.id, type: ev.type } : { type };
     const t = editing.type;
@@ -478,10 +515,50 @@
     let n = 0;
     for (const op of mine) {
       if (inflight.has(op.id) || !pendingList().some(x => x.id === op.id)) continue;   // 다른 되살리기가 먼저 보냈다
-      try { const r = await write(op); if (!r || r.committed !== false) n++; }   // 수정인데 그사이 지워진 기록이면 조용히 건너뜀
+      try { const r = await write(op); if ((!r || r.committed !== false) && !heldHere.has(op.id)) n++; }   // 수정인데 그사이 지워진 기록이면 조용히 건너뜀
       catch (e) { toast('저장 실패: ' + (e.code || e.message)); }
     }
-    if (n) toast(`못 보낸 기록 ${n}건을 저장했습니다`);
+    if (n) toast(`못 보낸 기록 ${n}건을 저장했습니다`);   // 방금 이 화면에서 누른 것(heldHere)은 세지 않는다 — 누를 때마다 뜨면 시끄럽다
+  }
+
+  /* ---------- 서버 확인 전에 누른 새 기록 (2026-10-16, 위 「폰 사본」 절 설명) ---------- */
+  const heldHere = new Set();                              // 이 화면에서 서버 확인 전에 받아 둔 쓰기
+  const DUP_WIN = 60 * 60 * 1000;
+  const isEventSet = (op, w) => op.kind === 'set' && op.uid === uid && op.path.startsWith(paths[w] + '/events/');
+  function holdNew(w, op) {
+    op.id = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    op.blind = 1;
+    pendingSave(pendingList().concat([op]));
+    heldHere.add(op.id);
+    store[w].events = { ...store[w].events, [op.path.split('/').pop()]: op.value };
+    if (w === who) { events = store[w].events; render(); }
+    saveCacheSoon();
+  }
+  // 서버 값이 처음 왔을 때: before = 지금까지 보던 것(사본 + 받아 둔 것), server = 서버 값.
+  // 받아 둔 새 기록마다, 이 기기가 못 보던 서버 기록 중 같은 종류가 1시간 안에 사이에 다른 종류 없이 있으면 같은 순간을 두 번 누른 것 → 버린다
+  function settleHeld(w, before, server) {
+    const held = pendingList().filter(op => op.blind && isEventSet(op, w) && !(op.path.split('/').pop() in server));
+    if (!held.length) return;
+    const all = Object.values(server);
+    const fresh = Object.keys(server).filter(k => !(k in before)).map(k => server[k]);
+    const drop = [];
+    for (const op of held) {
+      const mine = op.value;
+      const dup = fresh.find(f => f.type === mine.type && Math.abs(f.t - mine.t) <= DUP_WIN &&
+        !all.some(x => x.type !== mine.type && x.t > Math.min(f.t, mine.t) && x.t < Math.max(f.t, mine.t)));
+      if (dup) { drop.push(op.id); const t = hm(dup.t); toast(`다른 기기에서 이미 ${t.ap} ${t.text} ${dup.type === 'sleep' ? '수면' : '기상'}을 기록해서, 방금 누른 것은 넣지 않았어요`); }
+    }
+    if (drop.length) pendingSave(pendingList().filter(x => !drop.includes(x.id)));
+  }
+  // 아직 서버에 안 간 새 기록은 서버 값에 없어도 보이게 (서버 확인 전에 누른 것, 지난번에 못 보낸 것)
+  function withPending(w, server) {
+    let out = server;
+    for (const op of pendingList()) {
+      if (!isEventSet(op, w) || !op.value || inflight.has(op.id)) continue;   // 보내는 중인 것은 SDK 가 보여 주고, 규칙에 막히면 SDK 가 거둔다
+      const k = op.path.split('/').pop();
+      if (!(k in out)) { if (out === server) out = { ...server }; out[k] = op.value; }
+    }
+    return out;
   }
 
   async function saveTime() {
@@ -497,13 +574,18 @@
     const id = editing.id;
     closeModals();
     if (DEMO) { events[id || 'd' + Date.now()] = { ...(events[id] || {}), ...rec }; render(); return; }
-    if (!ref) return toast('저장할 곳이 아직 준비되지 않았습니다');
+    if (!path) return toast('저장할 곳이 아직 준비되지 않았습니다');
     recDay = S.dayStart(t); renderRecord();   // RTDB 로컬 이벤트가 await보다 먼저 그리므로 날짜를 먼저 옮긴다
     try {
       if (id) {
         const r = await write({ uid, path: path + '/events/' + id, kind: 'edit', value: { t, by: rec.by, at: rec.at } });
         if (!r.committed) toast('이미 지워진 기록입니다');
-      } else await write({ uid, path: path + '/events/' + ref.child('events').push().key, kind: 'set', value: rec });   // push 키만 미리 받는다 (쓰기 없음)
+      } else {
+        // push 키만 미리 받는다 (쓰기 없음). 로그인 확인 전(ref 없음)엔 같은 모양으로 직접 만든다
+        const op = { uid, path: path + '/events/' + (ref ? ref.child('events').push().key : pushKey()), kind: 'set', value: rec };
+        if (!loaded[who]) holdNew(who, op);   // 서버 확인 전 — 받아 두고 서버 값이 오면 보낸다
+        else await write(op);
+      }
     } catch (e) { toast('저장 실패: ' + (e.code || e.message)); }
   }
   async function deleteEvent() {
@@ -566,7 +648,8 @@
     swipe($('page-summary'), () => $('sum-prev').click(), () => { if (!$('sum-next').disabled) $('sum-next').click(); });
     document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) closeModals(); }));
     // 자는 중 시간이 흐르도록 1분마다 다시 그림. 배경에서 돌아올 때도(타이머는 배경에서 멈춘다) 바로 다시 그린다
-    const tick = () => { if (!document.hidden) { followToday(); render(); } };
+    // 자는 중인 기록이 없으면 날이 바뀔 때만 (4천 건 다시 계산을 매분 하지 않게, 2026-10-16)
+    const tick = () => { if (document.hidden) return; const nd = followToday(); if (nd || sess.some(x => x.open)) render(); };
     setInterval(tick, 60 * 1000);
     document.addEventListener('visibilitychange', tick);
   }
@@ -591,7 +674,7 @@
     if (page === 'summary') renderSummary();   // 숨긴 채 그린 정리표는 막대 높이를 몰라 시각 글자를 못 가렸다 — 보일 때 다시 (2026-10-03)
   }
   let rsT = 0;
-  window.addEventListener('resize', () => { clearTimeout(rsT); rsT = setTimeout(renderSummary, 150); });   // 회전하면 막대 높이가 바뀐다
+  window.addEventListener('resize', () => { clearTimeout(rsT); rsT = setTimeout(() => { if (sumVisible()) renderSummary(); }, 150); });   // 회전하면 막대 높이가 바뀐다 (태블릿을 가로로 돌리면 이때 보이게 된다)
 
   function showApp() { $('auth-screen').classList.add('hidden'); $('app').classList.remove('hidden'); }
 
@@ -655,10 +738,15 @@
         // 두 프로필을 다 구독해 둔다 — 전환이 즉시 되고, 내 기록은 작아서 부담이 없다
         for (const w of ['dogyeom', 'me']) {
           refs[w].child('events').on('value', s => {
-            store[w].events = s.val() || {}; if (w === who) { events = store[w].events; render(); }
+            const server = s.val() || {};
+            if (!loaded[w]) settleHeld(w, store[w].events, server);   // 서버 확인 전에 누른 것 중 상대가 먼저 넣은 같은 기록은 버린다
+            const next = withPending(w, server);
+            const same = sameEvents(store[w].events, next);           // 사본과 같으면 다시 그리지 않는다 (2026-10-16)
+            store[w].events = next;
+            if (w === who) { events = next; if (!same || !drawn) render(); }
             if (first && w === 'dogyeom') { first = false; showApp(); setStatus(''); mark('기록'); }
-            if (!loaded[w]) { loaded[w] = true; updateStale(); replayPending(); }   // 지난번에 못 보낸 쓰기가 있으면 지금
-            saveCacheSoon();
+            if (!loaded[w]) { loaded[w] = true; updateStale(); replayPending(); }   // 지난번에 못 보낸 쓰기·방금 받아 둔 쓰기를 지금
+            if (!same) saveCacheSoon();
           }, w === 'dogyeom' ? onErr : () => {});
           refs[w].child('memos').on('value', s => { store[w].memos = s.val() || {}; if (w === who) { memos = store[w].memos; renderRecord(); renderMemos(); } saveCacheSoon(); });
         }
@@ -702,7 +790,8 @@
   const cached = !DEMO && LS.get('dsleep_signed_in') === '1' ? readCache() : null;
   if (cached) {
     uid = cached.uid; cacheHid = cached.hid;
-    for (const w of ['dogyeom', 'me']) { const c = cached[w] || {}; store[w].events = c.events || {}; store[w].memos = c.memos || {}; }
+    paths.dogyeom = 'dogyeom-sleep/' + cached.hid; paths.me = 'my-sleep/' + cached.uid;   // 로그인 확인 전에도 누른 기록을 적어 둘 곳 (2026-10-16)
+    for (const w of ['dogyeom', 'me']) { const c = cached[w] || {}; store[w].events = withPending(w, c.events || {}); store[w].memos = c.memos || {}; }
     applyWho(); render(); renderMemos(); showApp(); mark('사본');
   }
   if (DEMO) { demo(); const tab = new URLSearchParams(location.search).get('tab'); if (tab === 'sum') show('summary'); if (tab === 'memo') openMemos(); if (tab === 'memoq') { openMemos(); $('mm-search').value = '양치'; renderMemos(); } } else initFirebase();

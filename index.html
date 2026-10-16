@@ -10,7 +10,11 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="css/style.css?v=20261015b" />
+  <!-- 로그인 복원에 쓰는 구글 서버 두 곳과 SDK 주소에 미리 연결 (연결 하나에 0.2초쯤, 2026-10-16) -->
+  <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" />
+  <link rel="stylesheet" href="css/style.css?v=20261016" />
 </head>
 <body>
 
@@ -179,8 +183,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script src="js/sleep.js?v=20261015b"></script>
-<script src="js/app.js?v=20261015b"></script>
+<script src="js/sleep.js?v=20261016"></script>
+<script src="js/app.js?v=20261016"></script>
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
